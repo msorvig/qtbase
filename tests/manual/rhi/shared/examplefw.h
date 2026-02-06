@@ -48,7 +48,8 @@ enum GraphicsApi
     Vulkan,
     D3D11,
     D3D12,
-    Metal
+    Metal,
+    WebGPU
 };
 
 GraphicsApi graphicsApi;
@@ -68,6 +69,8 @@ QString graphicsApiName()
         return QLatin1String("Direct3D 12");
     case Metal:
         return QLatin1String("Metal");
+    case WebGPU:
+        return QLatin1String("WebGPU");
     default:
         break;
     }
@@ -160,6 +163,13 @@ Window::Window()
         break;
     case Metal:
         setSurfaceType(MetalSurface);
+        break;
+    case WebGPU:
+#if defined(__EMSCRIPTEN__)
+        setSurfaceType(OpenGLSurface);
+#elif QT_CONFIG(metal)
+        setSurfaceType(MetalSurface);
+#endif
         break;
     default:
         break;
@@ -278,6 +288,11 @@ void Window::init()
         m_r = QRhi::create(QRhi::Metal, &params, rhiFlags);
     }
 #endif
+
+    if (graphicsApi == WebGPU) {
+        QRhiWebGPUInitParams params;
+        m_r = QRhi::create(QRhi::WebGPU, &params, rhiFlags);
+    }
 
     if (!adapters.isEmpty()) {
         qDebug() << "For information, enumerateAdapters() reports:";
@@ -446,7 +461,9 @@ int main(int argc, char **argv)
     QLoggingCategory::setFilterRules(QLatin1String("qt.rhi.general=true"));
 
     // Defaults.
-#if defined(Q_OS_WIN)
+#if defined(__EMSCRIPTEN__)
+    graphicsApi = WebGPU;
+#elif defined(Q_OS_WIN)
     graphicsApi = D3D11;
 #elif QT_CONFIG(metal)
     graphicsApi = Metal;
@@ -471,6 +488,8 @@ int main(int argc, char **argv)
     cmdLineParser.addOption(d3d12Option);
     QCommandLineOption mtlOption({ "m", "metal" }, QLatin1String("Metal"));
     cmdLineParser.addOption(mtlOption);
+    QCommandLineOption webgpuOption({ "w", "webgpu" }, QLatin1String("WebGPU"));
+    cmdLineParser.addOption(webgpuOption);
     // Testing cleanup both with QWindow::close() (hitting X or Alt-F4) and
     // QCoreApplication::quit() (e.g. what a menu widget would do) is important.
     // Use this parameter for the latter.
@@ -511,6 +530,8 @@ int main(int argc, char **argv)
         graphicsApi = D3D12;
     if (cmdLineParser.isSet(mtlOption))
         graphicsApi = Metal;
+    if (cmdLineParser.isSet(webgpuOption))
+        graphicsApi = WebGPU;
 
     qDebug("Selected graphics API is %s", qPrintable(graphicsApiName()));
     qDebug("This is a multi-api example, use command line arguments to override:\n%s", qPrintable(cmdLineParser.helpText()));
