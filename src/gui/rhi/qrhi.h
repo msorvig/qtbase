@@ -2022,7 +2022,8 @@ public:
         OpenGLES2,
         D3D11,
         Metal,
-        D3D12
+        D3D12,
+        WebGPU
     };
 
     enum Flag {
