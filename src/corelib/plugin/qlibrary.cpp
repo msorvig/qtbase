@@ -553,6 +553,67 @@ bool QLibraryPrivate::load()
     return ret;
 }
 
+bool QLibraryPrivate::loadAsync(LoadAsyncSuccessCallback onSuccess, LoadAsyncFailCallback onFail)
+{
+    if (pHnd.loadRelaxed()) {
+        libraryUnloadCount.ref();
+        // Already loaded - call success callback asynchronously for consistency
+        if (onSuccess) {
+            QMetaObject::invokeMethod(qApp, [onSuccess]() {
+                onSuccess();
+            }, Qt::QueuedConnection);
+        }
+        return true;
+    }
+    if (fileName.isEmpty()) {
+        if (onFail) {
+            QMetaObject::invokeMethod(qApp, [onFail]() {
+                onFail(QLibrary::tr("The shared library was not found."));
+            }, Qt::QueuedConnection);
+        }
+        return false;
+    }
+
+    Q_TRACE(QLibraryPrivate_load_entry, fileName);
+
+    // Ref the library while async load is in progress
+    libraryRefCount.ref();
+
+    load_sys_async(
+        [this, onSuccess]() {
+            // Success callback - finalize loading
+            qCDebug(lcDebugLibrary) << fileName << "loaded library (async)";
+            libraryUnloadCount.ref();
+            installCoverageTool(this);
+
+            Q_TRACE(QLibraryPrivate_load_exit, true);
+
+            if (onSuccess)
+                onSuccess();
+        },
+        [this, onFail](const QString &err) {
+            // Failure callback
+            {
+                QMutexLocker locker(&mutex);
+                errorString = err;
+            }
+            qCDebug(lcDebugLibrary)
+                    << fileName
+                    << qUtf8Printable(u"cannot load (async): " + err);
+
+            Q_TRACE(QLibraryPrivate_load_exit, false);
+
+            // Release the ref we took at start
+            libraryRefCount.deref();
+
+            if (onFail)
+                onFail(err);
+        }
+    );
+
+    return true;
+}
+
 bool QLibraryPrivate::unload(UnloadFlag flag)
 {
     if (!pHnd.loadRelaxed())
@@ -825,6 +886,61 @@ bool QLibrary::load()
         return true;
     }
     return false;
+}
+
+/*!
+    \since 6.x
+
+    Starts asynchronous loading of the library.
+
+    This function returns immediately. When the load operation completes,
+    the \a callback is called with \c true if the library was loaded
+    successfully, or \c false otherwise. The loadFinished() signal is
+    also emitted.
+
+    On platforms that support only synchronous loading (all platforms
+    except WebAssembly), this function performs a synchronous load and
+    schedules the callback to be called asynchronously.
+
+    \note After a successful async load, isLoaded() will return \c true.
+
+    \sa load(), loadFinished(), isLoaded()
+*/
+void QLibrary::loadAsync(LoadAsyncCallback callback)
+{
+    if (!d) {
+        if (callback) {
+            QMetaObject::invokeMethod(this, [callback]() {
+                callback(false);
+            }, Qt::QueuedConnection);
+        }
+        Q_EMIT loadFinished(false);
+        return;
+    }
+    if (d.tag() == Loaded) {
+        bool success = d->pHnd.loadRelaxed() != nullptr;
+        if (callback) {
+            QMetaObject::invokeMethod(this, [callback, success]() {
+                callback(success);
+            }, Qt::QueuedConnection);
+        }
+        Q_EMIT loadFinished(success);
+        return;
+    }
+
+    d->loadAsync(
+        [this, callback]() {
+            d.setTag(Loaded);
+            if (callback)
+                callback(true);
+            Q_EMIT loadFinished(true);
+        },
+        [this, callback](const QString &) {
+            if (callback)
+                callback(false);
+            Q_EMIT loadFinished(false);
+        }
+    );
 }
 
 /*!

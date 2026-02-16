@@ -29,6 +29,7 @@
 #  include "QtCore/qt_windows.h"
 #endif
 
+#include <functional>
 #include <memory>
 
 QT_REQUIRE_CONFIG(library);
@@ -57,6 +58,10 @@ public:
 #endif
     enum UnloadFlag { UnloadSys, NoUnloadSys };
 
+    // Async load callback types
+    using LoadAsyncSuccessCallback = std::function<void()>;
+    using LoadAsyncFailCallback = std::function<void(const QString &errorString)>;
+
     struct Deleter {
         // QLibraryPrivate::release() is not, yet, and cannot easily be made, noexcept:
         void operator()(QLibraryPrivate *p) const { p->release(); }
@@ -67,6 +72,7 @@ public:
     const QString fullVersion;
 
     bool load();
+    bool loadAsync(LoadAsyncSuccessCallback onSuccess, LoadAsyncFailCallback onFail);
     QtPluginInstanceFunction loadPlugin(); // loads and resolves instance
     Q_AUTOTEST_EXPORT bool unload(UnloadFlag flag = UnloadSys);
     void release();
@@ -115,6 +121,7 @@ private:
     void mergeLoadHints(QLibrary::LoadHints loadHints);
 
     bool load_sys();
+    void load_sys_async(LoadAsyncSuccessCallback onSuccess, LoadAsyncFailCallback onFail);
     bool unload_sys();
     QFunctionPointer resolve_sys(const char *);
 

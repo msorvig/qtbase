@@ -8,6 +8,8 @@
 #include <QtCore/qobject.h>
 #include <QtCore/qtaggedpointer.h>
 
+#include <functional>
+
 QT_REQUIRE_CONFIG(library);
 
 QT_BEGIN_NAMESPACE
@@ -46,6 +48,10 @@ public:
     bool unload();
     bool isLoaded() const;
 
+    // Async load API
+    using LoadAsyncCallback = std::function<void(bool success)>;
+    void loadAsync(LoadAsyncCallback callback = nullptr);
+
     static bool isLibrary(const QString &fileName);
 
     void setFileName(const QString &fileName);
@@ -57,6 +63,9 @@ public:
 
     void setLoadHints(LoadHints hints);
     LoadHints loadHints() const;
+
+Q_SIGNALS:
+    void loadFinished(bool success);
 
 private:
     enum LoadStatusTag {

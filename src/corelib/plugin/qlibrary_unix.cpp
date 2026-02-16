@@ -283,4 +283,34 @@ QFunctionPointer QLibraryPrivate::resolve_sys(const char *symbol)
     return address;
 }
 
+#ifndef Q_OS_WASM
+// Fallback implementation for non-WASM Unix platforms
+// Performs synchronous load and invokes callbacks via event loop
+void QLibraryPrivate::load_sys_async(LoadAsyncSuccessCallback onSuccess, LoadAsyncFailCallback onFail)
+{
+    // Perform synchronous load
+    bool success = load_sys();
+
+    // Invoke callback asynchronously via event loop for consistent behavior
+    if (success) {
+        if (onSuccess) {
+            QMetaObject::invokeMethod(qApp, [onSuccess]() {
+                onSuccess();
+            }, Qt::QueuedConnection);
+        }
+    } else {
+        QString error;
+        {
+            QMutexLocker locker(&mutex);
+            error = errorString;
+        }
+        if (onFail) {
+            QMetaObject::invokeMethod(qApp, [onFail, error]() {
+                onFail(error);
+            }, Qt::QueuedConnection);
+        }
+    }
+}
+#endif // !Q_OS_WASM
+
 QT_END_NAMESPACE
