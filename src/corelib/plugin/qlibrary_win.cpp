@@ -5,6 +5,7 @@
 #include "qplatformdefs.h"
 #include "qlibrary_p.h"
 
+#include "qcoreapplication.h"
 #include "qdir.h"
 #include "qfile.h"
 #include "qfileinfo.h"
@@ -115,4 +116,33 @@ QFunctionPointer QLibraryPrivate::resolve_sys(const char *symbol)
     FARPROC address = GetProcAddress(pHnd.loadAcquire(), symbol);
     return QFunctionPointer(address);
 }
+
+// Fallback implementation for Windows
+// Performs synchronous load and invokes callbacks via event loop
+void QLibraryPrivate::load_sys_async(LoadAsyncSuccessCallback onSuccess, LoadAsyncFailCallback onFail)
+{
+    // Perform synchronous load
+    bool success = load_sys();
+
+    // Invoke callback asynchronously via event loop for consistent behavior
+    if (success) {
+        if (onSuccess) {
+            QMetaObject::invokeMethod(qApp, [onSuccess]() {
+                onSuccess();
+            }, Qt::QueuedConnection);
+        }
+    } else {
+        QString error;
+        {
+            QMutexLocker locker(&mutex);
+            error = errorString;
+        }
+        if (onFail) {
+            QMetaObject::invokeMethod(qApp, [onFail, error]() {
+                onFail(error);
+            }, Qt::QueuedConnection);
+        }
+    }
+}
+
 QT_END_NAMESPACE

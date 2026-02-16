@@ -11,6 +11,8 @@
 #endif
 #include <QtCore/qplugin.h>
 
+#include <functional>
+
 QT_BEGIN_NAMESPACE
 
 #if QT_CONFIG(library)
@@ -38,6 +40,10 @@ public:
     bool unload();
     bool isLoaded() const;
 
+    // Async load API
+    using LoadAsyncCallback = std::function<void(bool success)>;
+    void loadAsync(LoadAsyncCallback callback = nullptr);
+
     void setFileName(const QString &fileName);
     QString fileName() const;
 
@@ -45,6 +51,9 @@ public:
 
     void setLoadHints(QLibrary::LoadHints loadHints);
     QLibrary::LoadHints loadHints() const;
+
+Q_SIGNALS:
+    void loadFinished(bool success);
 
 private:
     QLibraryPrivate *d;

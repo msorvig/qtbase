@@ -184,6 +184,84 @@ bool QPluginLoader::load()
 }
 
 /*!
+    \since 6.x
+
+    Starts asynchronous loading of the plugin.
+
+    This function returns immediately. When the load operation completes,
+    the \a callback is called with \c true if the plugin was loaded
+    successfully, or \c false otherwise. The loadFinished() signal is
+    also emitted.
+
+    On platforms that support only synchronous loading (all platforms
+    except WebAssembly), this function performs a synchronous load and
+    schedules the callback to be called asynchronously.
+
+    \note After a successful async load, isLoaded() will return \c true
+    and instance() will return the plugin instance.
+
+    \sa load(), loadFinished(), isLoaded(), instance()
+*/
+void QPluginLoader::loadAsync(LoadAsyncCallback callback)
+{
+    if (!d || d->fileName.isEmpty()) {
+        if (callback) {
+            QMetaObject::invokeMethod(this, [callback]() {
+                callback(false);
+            }, Qt::QueuedConnection);
+        }
+        Q_EMIT loadFinished(false);
+        return;
+    }
+    if (did_load) {
+        bool success = d->pHnd && d->instanceFactory.loadAcquire();
+        if (callback) {
+            QMetaObject::invokeMethod(this, [callback, success]() {
+                callback(success);
+            }, Qt::QueuedConnection);
+        }
+        Q_EMIT loadFinished(success);
+        return;
+    }
+#if !defined(Q_OS_WASM)
+    // On wasm, plugins are fetched over HTTP and can't be verified upfront.
+    // Skip the isPlugin() check which probes the virtual filesystem.
+    if (!d->isPlugin()) {
+        if (callback) {
+            QMetaObject::invokeMethod(this, [callback]() {
+                callback(false);
+            }, Qt::QueuedConnection);
+        }
+        Q_EMIT loadFinished(false);
+        return;
+    }
+#endif
+
+    did_load = true;
+
+    d->loadAsync(
+        [this, callback]() {
+            // Success - resolve the plugin instance function
+            auto ptr = reinterpret_cast<QtPluginInstanceFunction>(d->resolve("qt_plugin_instance"));
+            d->instanceFactory.storeRelease(ptr);
+            bool success = (ptr != nullptr);
+            if (!success) {
+                QMutexLocker locker(&d->mutex);
+                d->errorString = tr("Could not resolve 'qt_plugin_instance' function");
+            }
+            if (callback)
+                callback(success);
+            Q_EMIT loadFinished(success);
+        },
+        [this, callback](const QString &) {
+            if (callback)
+                callback(false);
+            Q_EMIT loadFinished(false);
+        }
+    );
+}
+
+/*!
     Unloads the plugin and returns \c true if the plugin could be
     unloaded; otherwise returns \c false.
 
@@ -303,11 +381,21 @@ void QPluginLoader::setFileName(const QString &fileName)
         did_load = false;
     }
 
+#if defined(Q_OS_WASM)
+    // On wasm, plugins are fetched over HTTP by emscripten_dlopen and don't
+    // exist in the virtual filesystem. Skip VFS probing via locatePlugin().
+    const QString fn = fileName;
+#else
     const QString fn = locatePlugin(fileName);
+#endif
 
     d = QLibraryPrivate::findOrCreate(fn, QString(), lh);
+#if !defined(Q_OS_WASM)
+    // On wasm, plugins are fetched over HTTP — they can't be scanned upfront.
+    // Plugin state will be determined after async loading completes.
     if (!fn.isEmpty())
         d->updatePluginState();
+#endif
 
 #else
     qCWarning(qt_lcDebugPlugins, "Cannot load '%ls' into a statically linked Qt library.",
