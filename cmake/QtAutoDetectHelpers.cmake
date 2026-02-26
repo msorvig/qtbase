@@ -91,6 +91,10 @@ function(qt_auto_detect_wasi)
                 endif()
             endif()
 
+            # Prevent pkg-config from finding host system libraries
+            set(ENV{PKG_CONFIG_LIBDIR} "")
+            set(ENV{PKG_CONFIG_DIR} "")
+
             set(QT_AUTODETECT_WASI_IS_DONE TRUE CACHE BOOL "")
         else()
             message(STATUS
