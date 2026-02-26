@@ -91,7 +91,13 @@ function(qt_auto_detect_wasi)
                 endif()
             endif()
 
-            # Prevent pkg-config from finding host system libraries
+            # Prevent finding host system libraries during cross-compilation.
+            # The wasi-sdk toolchain sets CMAKE_FIND_ROOT_PATH_MODE_* to ONLY,
+            # but doesn't set CMAKE_FIND_ROOT_PATH, so the restriction has no effect.
+            # Set it to the WASI sysroot so find_path/find_library only search there.
+            if(wasi_sdk)
+                set(CMAKE_FIND_ROOT_PATH "${wasi_sdk}/share/wasi-sysroot" CACHE STRING "" FORCE)
+            endif()
             set(ENV{PKG_CONFIG_LIBDIR} "")
             set(ENV{PKG_CONFIG_DIR} "")
 
