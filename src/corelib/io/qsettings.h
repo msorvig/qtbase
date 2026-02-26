@@ -55,7 +55,7 @@ public:
         Registry64Format = 3,
 #endif
 
-#if defined(Q_OS_WASM) || defined(Q_QDOC)
+#if defined(__EMSCRIPTEN__) || defined(Q_QDOC)
         WebLocalStorageFormat = 4,
         WebIndexedDBFormat = 5,
 #endif

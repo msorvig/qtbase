@@ -26,7 +26,7 @@
 #include <QtCore/qstring.h>
 #include <QtCore/qvariant.h>
 #include <QtCore/qvarlengtharray.h>
-#ifdef Q_OS_WASM
+#ifdef __EMSCRIPTEN__
 #include <private/qstdweb_p.h>
 #endif
 

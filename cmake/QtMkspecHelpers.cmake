@@ -66,6 +66,8 @@ macro(qt_internal_setup_platform_definitions_and_mkspec)
         else()
             set(QT_DEFAULT_MKSPEC wasm-emscripten)
         endif()
+    elseif(WASI)
+        set(QT_DEFAULT_MKSPEC wasm-wasi)
     elseif(QNX)
         # Certain POSIX defines are not set if we don't compile with -std=gnuXX
         set(QT_ENABLE_CXX_EXTENSIONS ON)

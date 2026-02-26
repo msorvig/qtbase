@@ -18,7 +18,9 @@
 #include "qdatetime.h"
 #include "qvarlengtharray.h"
 
+#if !defined(Q_OS_WASI)
 #include <sys/mman.h>
+#endif
 #include <stdlib.h>
 #include <limits.h>
 #include <errno.h>
@@ -542,6 +544,14 @@ bool QFSFileEngine::setFileTime(const QDateTime &newDate, QFile::FileTime time)
 
 uchar *QFSFileEnginePrivate::map(qint64 offset, qint64 size, QFile::MemoryMapFlags flags)
 {
+#if defined(Q_OS_WASI)
+    Q_UNUSED(offset);
+    Q_UNUSED(size);
+    Q_UNUSED(flags);
+    Q_Q(QFSFileEngine);
+    q->setError(QFile::UnspecifiedError, qt_error_string(ENOTSUP));
+    return nullptr;
+#else
     qint64 maxFileOffset = std::numeric_limits<QT_OFF_T>::max();
 #if (defined(Q_OS_LINUX) || defined(Q_OS_ANDROID)) && Q_PROCESSOR_WORDSIZE == 4
     // The Linux mmap2 system call on 32-bit takes a page-shifted 32-bit
@@ -621,11 +631,15 @@ uchar *QFSFileEnginePrivate::map(qint64 offset, qint64 size, QFile::MemoryMapFla
         break;
     }
     return nullptr;
+#endif // !Q_OS_WASI
 }
 
 bool QFSFileEnginePrivate::unmap(uchar *ptr)
 {
-#if !defined(Q_OS_INTEGRITY)
+#if defined(Q_OS_WASI)
+    Q_UNUSED(ptr);
+    return false;
+#elif !defined(Q_OS_INTEGRITY)
     Q_Q(QFSFileEngine);
     const auto it = std::as_const(maps).find(ptr);
     if (it == maps.cend()) {

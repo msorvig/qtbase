@@ -10,7 +10,9 @@
 #include "private/qobject_p.h"
 #include "private/qabstracteventdispatcher_p.h"
 
+#if !defined(Q_OS_WASI)
 #include <sys/times.h>
+#endif
 
 using namespace std::chrono;
 // Implied by "using namespace std::chrono", but be explicit about it, for grep-ability

@@ -18,7 +18,7 @@
 #include "qstringconverter_p.h"
 #include <qdatastream.h>
 #include <qmath.h>
-#if defined(Q_OS_WASM)
+#if defined(__EMSCRIPTEN__)
 #include "private/qstdweb_p.h"
 #endif
 
@@ -4927,7 +4927,7 @@ QByteArray QByteArray::toPercentEncoding(const QByteArray &exclude, const QByteA
     return result;
 }
 
-#if defined(Q_OS_WASM) || defined(Q_QDOC)
+#if defined(__EMSCRIPTEN__) || defined(Q_QDOC)
 
 /*!
     Constructs a new QByteArray containing a copy of the Uint8Array \a uint8array.

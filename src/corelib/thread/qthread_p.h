@@ -238,7 +238,7 @@ public:
     Qt::HANDLE handle;
     bool terminationEnabled, terminatePending;
 #endif // Q_OS_WIN
-#ifdef Q_OS_WASM
+#ifdef __EMSCRIPTEN__
     static int idealThreadCount;
 #endif
     QThreadData *data;

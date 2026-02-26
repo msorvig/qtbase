@@ -13,7 +13,7 @@
 #include "qthreadstorage.h"
 #include <private/qtools_p.h>
 
-#if defined(Q_OS_WASM)
+#if defined(__EMSCRIPTEN__)
 #  include <private/qeventdispatcher_wasm_p.h>
 #else
 #  include <private/qeventdispatcher_unix_p.h>
@@ -323,7 +323,7 @@ QAbstractEventDispatcher *QThreadPrivate::createEventDispatcher(QThreadData *dat
         return new QEventDispatcherCoreFoundation;
     else
         return new QEventDispatcherUNIX;
-#elif defined(Q_OS_WASM)
+#elif defined(__EMSCRIPTEN__)
     return new QEventDispatcherWasm();
 #elif !defined(QT_NO_GLIB)
     const bool isQtMainThread = data->thread.loadAcquire() == QCoreApplicationPrivate::mainThread();
@@ -549,7 +549,7 @@ Qt::HANDLE QThread::currentThreadIdImpl() noexcept
 #  define _SC_NPROCESSORS_ONLN 84
 #endif
 
-#ifdef Q_OS_WASM
+#ifdef __EMSCRIPTEN__
 int QThreadPrivate::idealThreadCount = 1;
 #endif
 
@@ -619,7 +619,7 @@ int QThread::idealThreadCount() noexcept
             cores++;
         }
     }
-#elif defined(Q_OS_WASM)
+#elif defined(__EMSCRIPTEN__)
     cores = QThreadPrivate::idealThreadCount;
 #else
     // the rest: Solaris, AIX, Tru64

@@ -40,7 +40,9 @@
 #endif
 
 #include <chrono>
+#if !defined(Q_OS_WASI)
 #include <sys/wait.h>
+#endif
 #include <errno.h>
 #include <fcntl.h>
 
@@ -272,6 +274,7 @@ static inline int qt_safe_open(const char *pathname, int flags, mode_t mode = 07
 
 // don't call ::pipe
 // call qt_safe_pipe
+#if !defined(Q_OS_WASI)
 static inline int qt_safe_pipe(int pipefd[2], int flags = 0)
 {
     Q_ASSERT((flags & ~O_NONBLOCK) == 0);
@@ -339,6 +342,7 @@ static inline int qt_safe_dup2(int oldfd, int newfd, int flags = FD_CLOEXEC)
     return 0;
 #endif
 }
+#endif // !Q_OS_WASI
 
 static inline qint64 qt_safe_read(int fd, void *data, qint64 maxlen)
 {

@@ -22,6 +22,7 @@ QT_BEGIN_NAMESPACE
 
 void qt_ignore_sigpipe() noexcept // noexcept: sigaction(2) is not a Posix Cancellation Point
 {
+#if !defined(Q_OS_WASI) // WASI has no signal support
     // Set to ignore SIGPIPE once only.
     Q_CONSTINIT static QBasicAtomicInt atom = Q_BASIC_ATOMIC_INITIALIZER(0);
     if (!atom.loadRelaxed()) {
@@ -33,6 +34,7 @@ void qt_ignore_sigpipe() noexcept // noexcept: sigaction(2) is not a Posix Cance
         ::sigaction(SIGPIPE, &noaction, nullptr);
         atom.storeRelaxed(1);
     }
+#endif
 }
 
 QByteArray qt_readlink(const char *path)

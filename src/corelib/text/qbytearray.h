@@ -35,7 +35,7 @@ Q_FORWARD_DECLARE_CF_TYPE(CFData);
 Q_FORWARD_DECLARE_OBJC_CLASS(NSData);
 #endif
 
-#if defined(Q_OS_WASM) || defined(Q_QDOC)
+#if defined(__EMSCRIPTEN__) || defined(Q_QDOC)
 namespace emscripten {
     class val;
 }
@@ -452,7 +452,7 @@ public:
     NSData *toRawNSData() const Q_DECL_NS_RETURNS_AUTORELEASED;
 #endif
 
-#if defined(Q_OS_WASM) || defined(Q_QDOC)
+#if defined(__EMSCRIPTEN__) || defined(Q_QDOC)
     static QByteArray fromEcmaUint8Array(emscripten::val uint8array);
     emscripten::val toEcmaUint8Array();
 #endif

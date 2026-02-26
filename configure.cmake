@@ -1095,7 +1095,7 @@ qt_feature("thread" PUBLIC
     SECTION "Kernel"
     LABEL "Thread support"
     PURPOSE "Provides QThread and related classes."
-    AUTODETECT NOT WASM
+    AUTODETECT NOT WASM AND NOT WASI
 )
 qt_feature("future" PUBLIC
     SECTION "Kernel"

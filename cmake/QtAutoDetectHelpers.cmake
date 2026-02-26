@@ -64,6 +64,41 @@ function(qt_auto_detect_wasm)
     endif()
 endfunction()
 
+function(qt_auto_detect_wasi)
+    if("${QT_QMAKE_TARGET_MKSPEC}" STREQUAL "wasm-wasi")
+        if(NOT DEFINED QT_AUTODETECT_WASI_IS_DONE)
+            # Find WASI SDK
+            if(DEFINED ENV{WASI_SDK_PREFIX})
+                set(wasi_sdk "$ENV{WASI_SDK_PREFIX}")
+            elseif(DEFINED WASI_SDK_PREFIX)
+                set(wasi_sdk "${WASI_SDK_PREFIX}")
+            endif()
+
+            if(NOT DEFINED BUILD_SHARED_LIBS)
+                qt_internal_ensure_static_qt_config()
+            endif()
+
+            # Find toolchain file
+            if(NOT DEFINED CMAKE_TOOLCHAIN_FILE AND wasi_sdk)
+                set(wasi_toolchain_file "${wasi_sdk}/share/cmake/wasi-sdk-p2.cmake")
+                if(EXISTS "${wasi_toolchain_file}")
+                    set(CMAKE_TOOLCHAIN_FILE "${wasi_toolchain_file}" CACHE STRING "" FORCE)
+                    message(STATUS "WASI SDK toolchain file detected at ${CMAKE_TOOLCHAIN_FILE}")
+                else()
+                    message(FATAL_ERROR
+                        "WASI SDK toolchain file not found at ${wasi_toolchain_file}. "
+                        "Make sure WASI_SDK_PREFIX points to a valid wasi-sdk installation.")
+                endif()
+            endif()
+
+            set(QT_AUTODETECT_WASI_IS_DONE TRUE CACHE BOOL "")
+        else()
+            message(STATUS
+                "Reusing cached WASI toolchain file detected at ${CMAKE_TOOLCHAIN_FILE}")
+        endif()
+    endif()
+endfunction()
+
 # Handle assignment of CMAKE_POLICY_VERSION_MINIMUM for Android NDK cmake toolchain files shipped
 # with NDK < r28, to avoid deprecation warnings.
 #
@@ -687,6 +722,7 @@ macro(qt_internal_setup_autodetect)
     qt_auto_detect_android()
     qt_auto_detect_pch()
     qt_auto_detect_wasm()
+    qt_auto_detect_wasi()
     qt_auto_detect_win32_arm()
     qt_auto_detect_linux_x86()
     qt_auto_detect_integrity()

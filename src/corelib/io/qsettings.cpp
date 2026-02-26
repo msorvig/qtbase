@@ -265,7 +265,7 @@ QString QSettingsPrivate::normalizedKey(QAnyStringView key)
 
 // see also qsettings_win.cpp and qsettings_mac.cpp
 
-#if !defined(Q_OS_WIN) && !defined(Q_OS_DARWIN) && !defined(Q_OS_WASM)
+#if !defined(Q_OS_WIN) && !defined(Q_OS_DARWIN) && !defined(__EMSCRIPTEN__)
 QSettingsPrivate *QSettingsPrivate::create(QSettings::Format format, QSettings::Scope scope,
                                            const QString &organization, const QString &application)
 {
@@ -869,7 +869,7 @@ QStringList QSettingsPrivate::splitArgs(const QString &s, qsizetype idx)
 
 void QConfFileSettingsPrivate::initFormat()
 {
-#if defined(Q_OS_WASM)
+#if defined(__EMSCRIPTEN__)
     extension = (format == QSettings::NativeFormat || format == QSettings::WebIndexedDBFormat)
             ? ".conf"_L1
             : ".ini"_L1;
@@ -884,7 +884,7 @@ void QConfFileSettingsPrivate::initFormat()
     caseSensitivity = IniCaseSensitivity;
 #endif
 
-#if defined Q_OS_WASM
+#if defined __EMSCRIPTEN__
     if (format > QSettings::IniFormat && format != QSettings::WebIndexedDBFormat) {
 #else
     if (format > QSettings::IniFormat) {
@@ -906,7 +906,7 @@ void QConfFileSettingsPrivate::initFormat()
 void QConfFileSettingsPrivate::initAccess()
 {
     if (!confFiles.isEmpty()) {
-#if defined Q_OS_WASM
+#if defined __EMSCRIPTEN__
         if (format > QSettings::IniFormat && format != QSettings::WebIndexedDBFormat) {
 #else
         if (format > QSettings::IniFormat) {
@@ -1312,7 +1312,7 @@ QString QConfFileSettingsPrivate::fileName() const
 
 bool QConfFileSettingsPrivate::isWritable() const
 {
-#if defined(Q_OS_WASM)
+#if defined(__EMSCRIPTEN__)
     if (format > QSettings::IniFormat && format != QSettings::WebIndexedDBFormat && !writeFunc)
 #else
     if (format > QSettings::IniFormat && !writeFunc)
@@ -1396,7 +1396,7 @@ void QConfFileSettingsPrivate::syncConfFile(QConfFile *confFile)
         if (file.isReadable() && file.size() != 0) {
             bool ok = false;
 
-#ifdef Q_OS_WASM
+#ifdef __EMSCRIPTEN__
             if (format == QSettings::WebIndexedDBFormat) {
                 QByteArray data = file.readAll();
                 ok = readIniFile(data, &confFile->unparsedIniSections);
@@ -1465,7 +1465,7 @@ void QConfFileSettingsPrivate::syncConfFile(QConfFile *confFile)
             return;
         }
 
-#ifdef Q_OS_WASM
+#ifdef __EMSCRIPTEN__
         if (format == QSettings::WebIndexedDBFormat) {
             ok = writeIniFile(sf, mergedKeys);
         } else

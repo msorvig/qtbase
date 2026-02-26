@@ -23,7 +23,7 @@
 #include <private/qproperty_p.h>
 #include <qabstractanimation.h>
 
-#if defined(Q_OS_WASM)
+#if defined(__EMSCRIPTEN__)
 #include <QtCore/private/qwasmanimationdriver_p.h>
 #endif
 
@@ -188,7 +188,7 @@ private:
     friend class QAnimationDriver;
 
     QAnimationDriver *driver;
-#if defined(Q_OS_WASM)
+#if defined(__EMSCRIPTEN__)
     QWasmAnimationDriver defaultDriver;
 #else
     QDefaultAnimationDriver defaultDriver;

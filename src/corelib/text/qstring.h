@@ -1121,7 +1121,7 @@ public:
     NSString *toNSString() const Q_DECL_NS_RETURNS_AUTORELEASED;
 #endif
 
-#if defined(Q_OS_WASM) || defined(Q_QDOC)
+#if defined(__EMSCRIPTEN__) || defined(Q_QDOC)
     static QString fromEcmaString(emscripten::val jsString);
     emscripten::val toEcmaString() const;
 #endif

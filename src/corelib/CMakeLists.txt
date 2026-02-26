@@ -1127,7 +1127,7 @@ qt_internal_extend_target(Core CONDITION QT_FEATURE_processenvironment AND WIN32
         io/qprocess_win.cpp
 )
 
-qt_internal_extend_target(Core CONDITION QT_FEATURE_processenvironment AND UNIX
+qt_internal_extend_target(Core CONDITION QT_FEATURE_processenvironment AND UNIX AND NOT WASI
     SOURCES
         io/qprocess_unix.cpp
 )

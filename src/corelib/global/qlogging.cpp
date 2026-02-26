@@ -56,7 +56,7 @@
 # include "private/qcore_unix_p.h"
 #endif
 
-#ifdef Q_OS_WASM
+#ifdef __EMSCRIPTEN__
 #include <emscripten/emscripten.h>
 #endif
 
@@ -251,7 +251,7 @@ static bool qt_append_thread_name_to(QString &message)
 }
 #endif
 
-#ifndef Q_OS_WASM
+#ifndef __EMSCRIPTEN__
 
 /*!
     Returns true if writing to \c stderr is supported.
@@ -348,7 +348,7 @@ bool shouldLogToStderr()
 
 using namespace QtPrivate;
 
-#endif // ifndef Q_OS_WASM
+#endif // ifndef __EMSCRIPTEN__
 
 /*!
     \class QMessageLogContext
@@ -1991,7 +1991,7 @@ static bool win_message_handler(QtMsgType, const QMessageLogContext &,
 }
 #endif
 
-#ifdef Q_OS_WASM
+#ifdef __EMSCRIPTEN__
 static bool wasm_default_message_handler(QtMsgType type,
                                   const QMessageLogContext &,
                                   const QString &formattedMessage)
@@ -2060,7 +2060,7 @@ static constexpr SystemMessageSink systemMessageSink = {
         android_default_message_handler
 #elif defined(QT_USE_APPLE_UNIFIED_LOGGING)
         AppleUnifiedLogger::messageHandler, true
-#elif defined Q_OS_WASM
+#elif defined __EMSCRIPTEN__
         wasm_default_message_handler
 #else
         nullptr

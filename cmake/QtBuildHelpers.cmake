@@ -214,6 +214,7 @@ function(qt_internal_get_qt_build_private_helpers out_var)
         QtToolHelpers
         QtToolchainHelpers
         QtUnityBuildHelpers
+        QtWasiHelpers
         QtWasmHelpers
         QtWindowsHelpers
         QtWrapperScriptHelpers

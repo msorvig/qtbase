@@ -40,6 +40,7 @@
      HAIKU    - Haiku
      WEBOS    - LG WebOS
      WASM     - WebAssembly
+     WASI     - WebAssembly System Interface
 
    The following operating systems have variants:
      LINUX    - both Q_OS_LINUX and Q_OS_ANDROID are defined when building for Android
@@ -94,6 +95,9 @@
 #  define Q_OS_SOLARIS
 #elif defined(hpux) || defined(__hpux)
 #  define Q_OS_HPUX
+#elif defined(__wasi__)
+#  define Q_OS_WASI
+#  define Q_OS_WASM
 #elif defined(__EMSCRIPTEN__)
 #  define Q_OS_WASM
 #elif defined(__linux__) || defined(__linux)

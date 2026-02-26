@@ -341,9 +341,9 @@ void qTzSet()
     const auto locker = qt_scoped_lock(environmentMutex);
 #if defined(Q_OS_WIN)
     _tzset();
-#else
+#elif !defined(Q_OS_WASI) // WASI has no timezone tables
     tzset();
-#endif // Q_OS_WIN
+#endif
 }
 
 /* Wrap mktime(), which is specified to behave as if it called tzset(), hence
@@ -418,6 +418,8 @@ QString qTzName(int dstIndex)
         ok = _get_tzname(&size, name, sizeof(name), dstIndex) == 0;
         size -= 1; // It includes space for '\0' (or !ok => we're going to ignore it).
         Q_ASSERT(!ok || size < sizeof(name));
+#elif defined(Q_OS_WASI) // WASI has no timezone tables
+        ok = false;
 #else
         const char *const src = tzname[dstIndex];
         size = src ? strlen(src) : 0;

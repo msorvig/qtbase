@@ -58,7 +58,7 @@
 #   include "qeventdispatcher_glib_p.h"
 #  endif
 # endif
-# if !defined(Q_OS_WASM)
+# if !defined(__EMSCRIPTEN__)
 #  include "qeventdispatcher_unix_p.h"
 # endif
 #endif
@@ -96,7 +96,7 @@
 #  include <taskLib.h>
 #endif
 
-#ifdef Q_OS_WASM
+#ifdef __EMSCRIPTEN__
 #include <emscripten/val.h>
 #endif
 
@@ -462,10 +462,10 @@ QCoreApplicationPrivate::QCoreApplicationPrivate(int &aargc, char **aargv)
 #ifndef QT_NO_QOBJECT
     QCoreApplicationPrivate::is_app_closing = false;
 
-#  if defined(Q_OS_UNIX)
+#  if defined(Q_OS_UNIX) && !defined(Q_OS_WASI)
     if (Q_UNLIKELY(!setuidAllowed && (geteuid() != getuid())))
         qFatal("FATAL: The application binary appears to be running setuid, this is a security hole.");
-#  endif // Q_OS_UNIX
+#  endif // Q_OS_UNIX && !Q_OS_WASI
 
     QThread *cur = QThread::currentThread(); // note: this may end up setting theMainThread!
     if (cur != theMainThread.loadAcquire())
@@ -798,7 +798,7 @@ void Q_TRACE_INSTRUMENT(qtcore) QCoreApplicationPrivate::init()
 #endif
 
 #if QT_CONFIG(thread)
-#ifdef Q_OS_WASM
+#ifdef __EMSCRIPTEN__
     emscripten::val hardwareConcurrency = emscripten::val::global("navigator")["hardwareConcurrency"];
     if (hardwareConcurrency.isUndefined())
         QThreadPrivate::idealThreadCount = 2;

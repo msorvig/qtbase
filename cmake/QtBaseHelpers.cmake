@@ -248,6 +248,11 @@ macro(qt_internal_qtbase_build_repo)
             include(src/corelib/Qt6WasmMacros.cmake)
         endif()
 
+        # Needed when building for WASI.
+        if(WASI)
+            include(cmake/QtWasiHelpers.cmake)
+        endif()
+
         include(src/tools/qtwaylandscanner/Qt6WaylandCompositorMacros.cmake)
 
         ## Targets for global features, etc.:
@@ -263,6 +268,10 @@ macro(qt_internal_qtbase_build_repo)
 
         if(WASM)
             qt_internal_setup_wasm_target_properties(Platform)
+        endif()
+
+        if(WASI)
+            qt_internal_setup_wasi_target_properties(Platform)
         endif()
 
         # Set up optimization flags like in qmake.

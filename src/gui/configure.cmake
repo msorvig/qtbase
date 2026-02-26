@@ -1053,7 +1053,7 @@ qt_feature("mtdev" PRIVATE
 )
 qt_feature("opengles2" PUBLIC
     LABEL "OpenGL ES 2.0"
-    CONDITION NOT WIN32 AND NOT WATCHOS AND NOT QT_FEATURE_opengl_desktop AND GLESv2_FOUND
+    CONDITION NOT WIN32 AND NOT WATCHOS AND NOT WASI AND NOT QT_FEATURE_opengl_desktop AND GLESv2_FOUND
     ENABLE INPUT_opengl STREQUAL 'es2'
     DISABLE INPUT_opengl STREQUAL 'desktop' OR INPUT_opengl STREQUAL 'dynamic' OR INPUT_opengl STREQUAL 'no'
 )
@@ -1073,7 +1073,7 @@ qt_feature("opengles32" PUBLIC
 qt_feature("opengl-desktop"
     LABEL "Desktop OpenGL"
     AUTODETECT NOT WIN32
-    CONDITION ( WIN32 AND ( MSVC OR WrapOpenGL_FOUND ) ) OR ( NOT WATCHOS AND NOT WIN32 AND NOT WASM AND WrapOpenGL_FOUND )
+    CONDITION ( WIN32 AND ( MSVC OR WrapOpenGL_FOUND ) ) OR ( NOT WATCHOS AND NOT WIN32 AND NOT WASM AND NOT WASI AND WrapOpenGL_FOUND )
     ENABLE INPUT_opengl STREQUAL 'desktop'
     DISABLE INPUT_opengl STREQUAL 'es2' OR INPUT_opengl STREQUAL 'dynamic' OR INPUT_opengl STREQUAL 'no'
 )
@@ -1761,7 +1761,7 @@ qt_configure_add_report_entry(
 qt_configure_add_report_entry(
     TYPE ERROR
     MESSAGE "The OpenGL functionality tests failed! You might need to modify the OpenGL package search path by setting the OpenGL_DIR CMake variable to the OpenGL library's installation directory."
-    CONDITION QT_FEATURE_gui AND NOT WATCHOS AND NOT VISIONOS AND ( NOT INPUT_opengl STREQUAL 'no' ) AND NOT QT_FEATURE_opengl_desktop AND NOT QT_FEATURE_opengles2 AND NOT QT_FEATURE_opengl_dynamic
+    CONDITION QT_FEATURE_gui AND NOT WATCHOS AND NOT VISIONOS AND NOT WASI AND ( NOT INPUT_opengl STREQUAL 'no' ) AND NOT QT_FEATURE_opengl_desktop AND NOT QT_FEATURE_opengles2 AND NOT QT_FEATURE_opengl_dynamic
 )
 qt_configure_add_report_entry(
     TYPE WARNING

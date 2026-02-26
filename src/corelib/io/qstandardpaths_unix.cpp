@@ -14,6 +14,10 @@
 #include <private/qfilesystemengine_p.h>
 #include <errno.h>
 #include <stdlib.h>
+#if defined(Q_OS_WASI)
+// WASI lacks user identity
+static uid_t geteuid() { return 0; }
+#endif
 
 #ifndef QT_BOOTSTRAPPED
 #include <qcoreapplication.h>

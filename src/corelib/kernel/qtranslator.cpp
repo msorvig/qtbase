@@ -25,7 +25,7 @@
 #include "qendian.h"
 #include "qresource.h"
 
-#if defined(Q_OS_UNIX) && !defined(Q_OS_INTEGRITY)
+#if defined(Q_OS_UNIX) && !defined(Q_OS_INTEGRITY) && !defined(Q_OS_WASI)
 #  define QT_USE_MMAP
 #  include "private/qcore_unix_p.h"
 // for mmap

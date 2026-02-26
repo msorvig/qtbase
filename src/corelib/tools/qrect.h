@@ -18,7 +18,7 @@
 #if defined(Q_OS_DARWIN) || defined(Q_QDOC)
 struct CGRect;
 #endif
-#if defined(Q_OS_WASM) || defined(Q_QDOC)
+#if defined(__EMSCRIPTEN__) || defined(Q_QDOC)
 namespace emscripten {
 class val;
 }
@@ -631,7 +631,7 @@ public:
     [[nodiscard]] CGRect toCGRect() const noexcept;
 #endif
 
-#if defined(Q_OS_WASM) || defined(Q_QDOC)
+#if defined(__EMSCRIPTEN__) || defined(Q_QDOC)
     [[nodiscard]] static QRectF fromDOMRect(emscripten::val domRect);
     [[nodiscard]] emscripten::val toDOMRect() const;
 #endif

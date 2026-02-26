@@ -265,7 +265,7 @@ private:
     QString extension;
     Qt::CaseSensitivity caseSensitivity;
     qsizetype nextPosition;
-#ifdef Q_OS_WASM
+#ifdef __EMSCRIPTEN__
     friend class QWasmIDBSettingsPrivate;
 #endif
 };

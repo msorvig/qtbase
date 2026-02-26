@@ -113,7 +113,7 @@
 
 #include "qabstractanimation_p.h"
 
-#if defined(Q_OS_WASM)
+#if defined(__EMSCRIPTEN__)
 #include <QtCore/private/qwasmanimationdriver_p.h>
 #endif
 

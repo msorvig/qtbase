@@ -801,6 +801,8 @@ QString QSysInfo::productType()
     return QStringLiteral("macos");
 #elif defined(Q_OS_DARWIN)
     return QStringLiteral("darwin");
+#elif defined(Q_OS_WASI)
+    return QStringLiteral("wasi");
 #elif defined(Q_OS_WASM)
     return QStringLiteral("wasm");
 #elif defined(Q_OS_VXWORKS)

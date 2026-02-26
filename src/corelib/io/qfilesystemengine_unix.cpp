@@ -20,10 +20,16 @@
 # include <QtCore/private/qtemporaryfile_p.h>
 #endif // QT_BOOTSTRAPPED
 
+#if !defined(Q_OS_WASI)
 #include <grp.h>
 #include <pwd.h>
+#endif
 #include <stdlib.h> // for realpath()
 #include <unistd.h>
+#if defined(Q_OS_WASI)
+// WASI lacks user/group identity
+static inline uid_t getuid() { return 0; }
+#endif
 #include <stdio.h>
 #include <errno.h>
 
