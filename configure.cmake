@@ -166,6 +166,11 @@ qt_internal_check_if_linker_is_available(use_mold_linker
     )
 unset(__qt_internal_mold_linker_flags)
 
+qt_internal_check_if_linker_is_available(use_weld_linker
+    LABEL "weld linker"
+    FLAG "-fuse-ld=weld"
+    )
+
 qt_feature("use_bfd_linker"
     PRIVATE
     LABEL "bfd"
@@ -173,7 +178,7 @@ qt_feature("use_bfd_linker"
     CONDITION NOT MSVC AND NOT INTEGRITY AND NOT WASM AND TEST_use_bfd_linker
     ENABLE INPUT_linker STREQUAL 'bfd'
     DISABLE INPUT_linker STREQUAL 'gold' OR INPUT_linker STREQUAL 'lld'
-            OR INPUT_linker STREQUAL 'mold'
+            OR INPUT_linker STREQUAL 'mold' OR INPUT_linker STREQUAL 'weld'
 )
 qt_feature_config("use_bfd_linker" QMAKE_PRIVATE_CONFIG)
 
@@ -188,7 +193,7 @@ qt_feature("use_gold_linker"
     CONDITION NOT WIN32 AND NOT INTEGRITY AND NOT WASM AND NOT rtems AND TEST_use_gold_linker
     ENABLE INPUT_linker STREQUAL 'gold' OR QT_FEATURE_use_gold_linker_alias
     DISABLE INPUT_linker STREQUAL 'bfd' OR INPUT_linker STREQUAL 'lld'
-            OR INPUT_linker STREQUAL 'mold'
+            OR INPUT_linker STREQUAL 'mold' OR INPUT_linker STREQUAL 'weld'
 )
 qt_feature_config("use_gold_linker" QMAKE_PRIVATE_CONFIG)
 
@@ -199,7 +204,7 @@ qt_feature("use_lld_linker"
     CONDITION NOT MSVC AND NOT INTEGRITY AND NOT WASM AND TEST_use_lld_linker
     ENABLE INPUT_linker STREQUAL 'lld'
     DISABLE INPUT_linker STREQUAL 'bfd' OR INPUT_linker STREQUAL 'gold'
-            OR INPUT_linker STREQUAL 'mold'
+            OR INPUT_linker STREQUAL 'mold' OR INPUT_linker STREQUAL 'weld'
 )
 qt_feature_config("use_lld_linker" QMAKE_PRIVATE_CONFIG)
 
@@ -210,9 +215,20 @@ qt_feature("use_mold_linker"
     CONDITION NOT WIN32 AND NOT INTEGRITY AND NOT WASM AND TEST_use_mold_linker
     ENABLE INPUT_linker STREQUAL 'mold'
     DISABLE INPUT_linker STREQUAL 'bfd' OR INPUT_linker STREQUAL 'gold'
-            OR INPUT_linker STREQUAL 'lld'
+            OR INPUT_linker STREQUAL 'lld' OR INPUT_linker STREQUAL 'weld'
 )
 qt_feature_config("use_mold_linker" QMAKE_PRIVATE_CONFIG)
+
+qt_feature("use_weld_linker"
+    PRIVATE
+    LABEL "weld"
+    AUTODETECT false
+    CONDITION WASI AND TEST_use_weld_linker
+    ENABLE INPUT_linker STREQUAL 'weld'
+    DISABLE INPUT_linker STREQUAL 'bfd' OR INPUT_linker STREQUAL 'gold'
+            OR INPUT_linker STREQUAL 'lld' OR INPUT_linker STREQUAL 'mold'
+)
+qt_feature_config("use_weld_linker" QMAKE_PRIVATE_CONFIG)
 
 if(NOT QT_CONFIGURE_RUNNING)
     qt_evaluate_feature(use_bfd_linker)
@@ -220,6 +236,7 @@ if(NOT QT_CONFIGURE_RUNNING)
     qt_evaluate_feature(use_gold_linker)
     qt_evaluate_feature(use_lld_linker)
     qt_evaluate_feature(use_mold_linker)
+    qt_evaluate_feature(use_weld_linker)
 
     qt_run_linker_version_script_support()
 endif()
@@ -1351,10 +1368,10 @@ qt_configure_add_summary_entry(
 )
 qt_configure_add_summary_entry(
     TYPE "firstAvailableFeature"
-    ARGS "use_bfd_linker use_gold_linker use_lld_linker use_mold_linker"
+    ARGS "use_bfd_linker use_gold_linker use_lld_linker use_mold_linker use_weld_linker"
     MESSAGE "Linker"
     CONDITION QT_FEATURE_use_bfd_linker OR QT_FEATURE_use_gold_linker OR QT_FEATURE_use_lld_linker
-              OR QT_FEATURE_use_mold_linker
+              OR QT_FEATURE_use_mold_linker OR QT_FEATURE_use_weld_linker
 )
 qt_configure_add_summary_entry(
     ARGS "enable_new_dtags"
