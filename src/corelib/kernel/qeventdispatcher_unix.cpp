@@ -20,7 +20,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#if __has_include(<sys/eventfd.h>)
+#if __has_include(<sys/eventfd.h>) && !defined(Q_OS_WASI)
 #  include <sys/eventfd.h>
 static constexpr bool UsingEventfd = true;
 #else

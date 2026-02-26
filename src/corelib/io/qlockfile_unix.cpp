@@ -20,11 +20,11 @@
 #include "private/qfilesystementry_p.h"
 #include "private/qtemporaryfile_p.h"
 
-#if !defined(Q_OS_INTEGRITY)
+#if !defined(Q_OS_INTEGRITY) && !defined(Q_OS_WASI)
 #include <sys/file.h>  // flock
 #endif
 
-#if defined(Q_OS_RTEMS)
+#if defined(Q_OS_RTEMS) || defined(Q_OS_WASI)
 // flock() does not work in these OSes and produce warnings when we try to use
 #  undef LOCK_EX
 #  undef LOCK_NB
