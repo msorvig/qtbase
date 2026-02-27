@@ -20,7 +20,9 @@ function(qt_internal_setup_wasi_target_properties wasiTarget)
     endif()
 
     # WASI libc emulations for APIs that don't have native implementations
-    target_compile_definitions("${wasiTarget}" INTERFACE _WASI_EMULATED_MMAN _WASI_EMULATED_SIGNAL)
-    target_link_options("${wasiTarget}" INTERFACE -lwasi-emulated-mman -lwasi-emulated-signal)
+    target_compile_definitions("${wasiTarget}" INTERFACE
+        _WASI_EMULATED_MMAN _WASI_EMULATED_SIGNAL _WASI_EMULATED_GETPID)
+    target_link_options("${wasiTarget}" INTERFACE
+        -lwasi-emulated-mman -lwasi-emulated-signal -lwasi-emulated-getpid)
 
 endfunction()
