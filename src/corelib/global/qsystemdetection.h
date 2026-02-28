@@ -41,6 +41,7 @@
      WEBOS    - LG WebOS
      WASM     - WebAssembly
      WASI     - WebAssembly System Interface
+     WEB      - Web browser target
 
    The following operating systems have variants:
      LINUX    - both Q_OS_LINUX and Q_OS_ANDROID are defined when building for Android
@@ -49,6 +50,9 @@
               - both Q_OS_BSD4 and Q_OS_MACOS are defined when building for macOS
      FREEBSD  - Q_OS_FREEBSD is defined only when building for FreeBSD with a BSD userland
               - Q_OS_FREEBSD_KERNEL is always defined on FreeBSD, even if the userland is from GNU
+     WASM     - Q_OS_WASI is defined when building with the WASI SDK
+              - __EMSCRIPTEN__ is defined when building with the Emscripten SDK.
+              - Q_OS_WEB is defined when targeting the web platform
 */
 
 #if defined(__APPLE__) && (defined(__GNUC__) || defined(__xlC__) || defined(__xlc__))
@@ -100,6 +104,7 @@
 #  define Q_OS_WASM
 #elif defined(__EMSCRIPTEN__)
 #  define Q_OS_WASM
+#  define Q_OS_WEB
 #elif defined(__linux__) || defined(__linux)
 #  define Q_OS_LINUX
 #elif defined(__FreeBSD__) || defined(__DragonFly__) || defined(__FreeBSD_kernel__)
