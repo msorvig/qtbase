@@ -30,9 +30,11 @@
 #include <time.h>
 #include <sys/mman.h>
 #include <sys/uio.h>
+#if !defined(Q_OS_WASI)
 #include <sys/wait.h>
+#endif
 #include <unistd.h>
-# if !defined(Q_OS_INTEGRITY)
+# if !defined(Q_OS_INTEGRITY) && !defined(Q_OS_WASI)
 #  include <sys/resource.h>
 # endif
 # if __has_include(<sys/ucontext.h>)
@@ -61,7 +63,7 @@ using ucontext_t = void;
 #include <fcntl.h>
 #endif
 
-#if defined(Q_OS_WASM)
+#if defined(__EMSCRIPTEN__)
 #include <emscripten.h>
 #endif
 

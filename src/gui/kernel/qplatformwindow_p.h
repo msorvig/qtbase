@@ -18,6 +18,10 @@
 #include <QtGui/private/qtguiglobal_p.h>
 #include <QtCore/qbasictimer.h>
 #include <QtCore/qrect.h>
+
+#if defined(Q_OS_WASM)
+#include <emscripten/val.h>
+#endif
 #include <QtCore/qnativeinterface.h>
 #include <QtGui/qwindow.h>
 

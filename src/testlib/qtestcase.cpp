@@ -96,9 +96,11 @@
 #include <time.h>
 #include <sys/mman.h>
 #include <sys/uio.h>
+#if !defined(Q_OS_WASI)
 #include <sys/wait.h>
+#endif
 #include <unistd.h>
-# if !defined(Q_OS_INTEGRITY)
+# if !defined(Q_OS_INTEGRITY) && !defined(Q_OS_WASI)
 #  include <sys/resource.h>
 # endif
 #endif
@@ -110,7 +112,7 @@
 #include <CoreFoundation/CFPreferences.h>
 #endif
 
-#if defined(Q_OS_WASM)
+#if defined(__EMSCRIPTEN__)
 #include <emscripten.h>
 #endif
 
@@ -1852,12 +1854,12 @@ int QTest::qExec(QObject *testObject, int argc, char **argv)
     int ret = qRun();
     qCleanup();
 
-#if defined(Q_OS_WASM)
+#if defined(__EMSCRIPTEN__)
     EM_ASM({
         if (typeof Module != "undefined" && typeof Module.notifyTestFinished != "undefined")
             Module.notifyTestFinished($0);
     }, ret);
-#endif // Q_OS_WASM
+#endif // __EMSCRIPTEN__
 
     return ret;
 }

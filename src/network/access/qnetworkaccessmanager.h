@@ -156,7 +156,7 @@ private:
     friend class QNetworkReplyHttpImplPrivate;
     friend class QNetworkReplyFileImpl;
 
-#ifdef Q_OS_WASM
+#ifdef __EMSCRIPTEN__
     friend class QNetworkReplyWasmImpl;
 #endif
     Q_DECLARE_PRIVATE(QNetworkAccessManager)

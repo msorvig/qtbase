@@ -32,7 +32,7 @@
 #include <arpa/inet.h>
 #if defined(Q_OS_VXWORKS)
 #  include <hostLib.h>
-#else
+#elif !defined(Q_OS_WASI)
 #  include <resolv.h>
 #endif
 
@@ -130,12 +130,15 @@ static inline int qt_safe_connect(int sockfd, const struct sockaddr *addr, QT_SO
 # undef listen
 #endif
 
+#if !defined(Q_OS_WASI)
 template <typename T>
 static inline int qt_safe_ioctl(int sockfd, unsigned long request, T arg)
 {
     return ::ioctl(sockfd, request, arg);
 }
+#endif
 
+#if !defined(Q_OS_WASI)
 static inline int qt_safe_sendmsg(int sockfd, const struct msghdr *msg, int flags)
 {
 #ifdef MSG_NOSIGNAL
@@ -156,6 +159,7 @@ static inline int qt_safe_recvmsg(int sockfd, struct msghdr *msg, int flags)
     QT_EINTR_LOOP(ret, ::recvmsg(sockfd, msg, flags));
     return ret;
 }
+#endif
 
 QT_END_NAMESPACE
 

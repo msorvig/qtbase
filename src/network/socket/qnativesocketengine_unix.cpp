@@ -13,7 +13,7 @@
 #include "qnetworkinterface.h"
 #include "qnetworkinterface_p.h"
 #include "qendian.h"
-#ifdef Q_OS_WASM
+#ifdef __EMSCRIPTEN__
 #include <private/qeventdispatcher_wasm_p.h>
 #endif
 #include <time.h>

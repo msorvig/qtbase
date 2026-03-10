@@ -25,8 +25,10 @@
 #include <private/qtnetworkglobal_p.h>
 #include <private/qabstractfileengine_p.h>
 
+#ifdef __EMSCRIPTEN__
 #include <emscripten.h>
 #include <emscripten/fetch.h>
+#endif
 
 #include <memory>
 #include <mutex>
@@ -127,14 +129,18 @@ public:
     QIODevice *outgoingData;
     std::shared_ptr<QRingBuffer> outgoingDataBuffer;
 
+#ifdef __EMSCRIPTEN__
     static void downloadProgress(emscripten_fetch_t *fetch);
     static void downloadFailed(emscripten_fetch_t *fetch);
     static void downloadSucceeded(emscripten_fetch_t *fetch);
     static void stateChange(emscripten_fetch_t *fetch);
+#endif
 
     static QNetworkReply::NetworkError statusCodeFromHttp(int httpStatusCode, const QUrl &url);
 
+#ifdef __EMSCRIPTEN__
     emscripten_fetch_t *m_fetch;
+#endif
     FetchContext *m_fetchContext;
     void setReplyFinished();
     void setCanceled();

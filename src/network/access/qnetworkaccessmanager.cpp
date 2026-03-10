@@ -56,8 +56,10 @@
 #include <SystemConfiguration/SystemConfiguration.h>
 #include <Security/Security.h>
 #endif
-#ifdef Q_OS_WASM
+#ifdef __EMSCRIPTEN__
 #include "qnetworkreplywasmimpl_p.h"
+#endif
+#ifdef Q_OS_WASM
 #include "qhttpmultipart.h"
 #include "qhttpmultipart_p.h"
 #endif
@@ -1290,7 +1292,7 @@ QNetworkReply *QNetworkAccessManager::createRequest(QNetworkAccessManager::Opera
         }
     }
     request.setHeaders(std::move(h));
-#ifdef Q_OS_WASM
+#ifdef __EMSCRIPTEN__
     Q_UNUSED(isLocalFile);
     // Support http, https, and relative urls
     if (scheme == "http"_L1 || scheme == "https"_L1 || scheme.isEmpty()) {

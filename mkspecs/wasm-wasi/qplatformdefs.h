@@ -72,6 +72,10 @@
 #define POLLPRI 0
 #endif
 
+#include <sys/socket.h>
+#define QT_SOCKLEN_T            socklen_t
+#define QT_SOCKET_CONNECT       ::connect
+
 #define QT_SIGNAL_RETTYPE       void
 #define QT_SIGNAL_ARGS          int
 
