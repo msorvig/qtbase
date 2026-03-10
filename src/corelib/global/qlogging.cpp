@@ -59,6 +59,9 @@
 #ifdef __EMSCRIPTEN__
 #include <emscripten/emscripten.h>
 #endif
+#ifdef Q_OS_WEB
+#include <emscripten/val.h>
+#endif
 
 #if QT_CONFIG(slog2)
 extern char *__progname;
@@ -1992,7 +1995,7 @@ static bool win_message_handler(QtMsgType, const QMessageLogContext &,
 #endif
 
 #ifdef __EMSCRIPTEN__
-static bool wasm_default_message_handler(QtMsgType type,
+static bool emscripten_default_message_handler(QtMsgType type,
                                   const QMessageLogContext &,
                                   const QString &formattedMessage)
 {
@@ -2001,7 +2004,6 @@ static bool wasm_default_message_handler(QtMsgType type,
         return false;
 
     int emOutputFlags = EM_LOG_CONSOLE;
-    QByteArray localMsg = formattedMessage.toLocal8Bit();
     switch (type) {
     case QtDebugMsg:
         break;
@@ -2017,6 +2019,35 @@ static bool wasm_default_message_handler(QtMsgType type,
         emOutputFlags |= EM_LOG_ERROR;
     }
     emscripten_log(emOutputFlags, "%s\n", qPrintable(formattedMessage));
+
+    return true; // Prevent further output to stderr
+}
+#endif
+
+#ifdef Q_OS_WEB
+static bool web_default_message_handler(QtMsgType type,
+                                  const QMessageLogContext &,
+                                  const QString &formattedMessage)
+{
+    static bool forceStderrLogging = qEnvironmentVariableIntValue("QT_FORCE_STDERR_LOGGING");
+    if (forceStderrLogging)
+        return false;
+
+    emscripten::val console = emscripten::val::global("console");
+    std::string msg = formattedMessage.toStdString();
+    switch (type) {
+    case QtDebugMsg:
+    case QtInfoMsg:
+        console.call<void>("log", msg);
+        break;
+    case QtWarningMsg:
+        console.call<void>("warn", msg);
+        break;
+    case QtCriticalMsg:
+    case QtFatalMsg:
+        console.call<void>("error", msg);
+        break;
+    }
 
     return true; // Prevent further output to stderr
 }
@@ -2060,8 +2091,10 @@ static constexpr SystemMessageSink systemMessageSink = {
         android_default_message_handler
 #elif defined(QT_USE_APPLE_UNIFIED_LOGGING)
         AppleUnifiedLogger::messageHandler, true
-#elif defined __EMSCRIPTEN__
-        wasm_default_message_handler
+#elif defined(__EMSCRIPTEN__)
+        emscripten_default_message_handler
+#elif defined(Q_OS_WEB)
+        web_default_message_handler
 #else
         nullptr
 #endif

@@ -19,7 +19,6 @@
 #include <qpa/qplatformwindow_p.h>
 
 #include <emscripten/val.h>
-#include <emscripten/html5.h>
 
 #include <memory>
 

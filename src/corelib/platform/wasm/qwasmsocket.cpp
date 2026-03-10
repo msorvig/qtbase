@@ -7,7 +7,9 @@
 #include <QtCore/qcoreapplication.h>
 #include <QtCore/qsocketnotifier.h>
 
+#ifdef __EMSCRIPTEN__
 #include "emscripten.h"
+#endif
 #include <sys/ioctl.h>
 
 #if QT_CONFIG(thread)
@@ -73,24 +75,28 @@ void QWasmSocket::setEmscriptenSocketCallbacks()
 {
     qCDebug(lcEventDispatcher) << "setEmscriptenSocketCallbacks";
 
+#ifdef __EMSCRIPTEN__
     emscripten_set_socket_error_callback(nullptr, QWasmSocket::socketError);
     emscripten_set_socket_open_callback(nullptr, QWasmSocket::socketOpen);
     emscripten_set_socket_listen_callback(nullptr, QWasmSocket::socketListen);
     emscripten_set_socket_connection_callback(nullptr, QWasmSocket::socketConnection);
     emscripten_set_socket_message_callback(nullptr, QWasmSocket::socketMessage);
     emscripten_set_socket_close_callback(nullptr, QWasmSocket::socketClose);
+#endif
 }
 
 void QWasmSocket::clearEmscriptenSocketCallbacks()
 {
     qCDebug(lcEventDispatcher) << "clearEmscriptenSocketCallbacks";
 
+#ifdef __EMSCRIPTEN__
     emscripten_set_socket_error_callback(nullptr, nullptr);
     emscripten_set_socket_open_callback(nullptr, nullptr);
     emscripten_set_socket_listen_callback(nullptr, nullptr);
     emscripten_set_socket_connection_callback(nullptr, nullptr);
     emscripten_set_socket_message_callback(nullptr, nullptr);
     emscripten_set_socket_close_callback(nullptr, nullptr);
+#endif
 }
 
 void QWasmSocket::socketError(int socket, int err, const char* msg, void *context)

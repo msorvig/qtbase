@@ -262,9 +262,8 @@ void QWasmScreen::onSubtreeChanged(QWasmWindowTreeNodeChangeType changeType,
 
 void QWasmScreen::updateQScreenSize()
 {
-    double css_width;
-    double css_height;
-    emscripten_get_element_css_size(outerScreenId().toUtf8().constData(), &css_width, &css_height);
+    double css_width = m_container["clientWidth"].as<double>();
+    double css_height = m_container["clientHeight"].as<double>();
     QSizeF cssSize(css_width, css_height);
 
     // Returns the html elements document/body position

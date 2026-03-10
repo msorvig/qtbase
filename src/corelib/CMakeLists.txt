@@ -1535,6 +1535,8 @@ qt_internal_extend_target(Core CONDITION WASM
         platform/wasm/qwasmsuspendresumecontrol.cpp platform/wasm/qwasmsuspendresumecontrol_p.h
         platform/wasm/qwasmlocalfileengine.cpp platform/wasm/qwasmlocalfileengine_p.h
         kernel/qeventdispatcher_wasm.cpp kernel/qeventdispatcher_wasm_p.h
+    INCLUDE_DIRECTORIES
+        platform/wasm/shims
 )
 
 qt_internal_extend_target(Core CONDITION QT_FEATURE_ctf

@@ -16,8 +16,6 @@
 
 #include <private/qstdweb_p.h>
 
-#include <emscripten.h>
-#include <emscripten/html5.h>
 #include <emscripten/val.h>
 
 #include <memory>

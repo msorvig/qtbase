@@ -257,7 +257,7 @@ QWasmWindow::~QWasmWindow()
     m_context2d = emscripten::val::undefined();
     commitParent(nullptr);
     if (m_requestAnimationFrameId > -1)
-        emscripten_cancel_animation_frame(m_requestAnimationFrameId);
+        emscripten::val::global("window").call<void>("cancelAnimationFrame", m_requestAnimationFrameId);
 }
 
 void QWasmWindow::shutdown()

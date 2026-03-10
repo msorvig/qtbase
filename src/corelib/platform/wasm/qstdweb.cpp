@@ -28,6 +28,7 @@ using emscripten::val;
 
 namespace qstdweb {
 
+#ifdef __EMSCRIPTEN__
 static void usePotentialyUnusedSymbols()
 {
     // Using this adds a reference on JSEvents and specialHTMLTargets which are always exported.
@@ -43,6 +44,7 @@ static void usePotentialyUnusedSymbols()
 }
 
 Q_CONSTRUCTOR_FUNCTION(usePotentialyUnusedSymbols)
+#endif
 typedef double uint53_t; // see Number.MAX_SAFE_INTEGER
 namespace {
 // Reads file in chunks in order to avoid holding two copies in memory at the same time

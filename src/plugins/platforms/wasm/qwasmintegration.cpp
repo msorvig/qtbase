@@ -135,19 +135,12 @@ QWasmIntegration::QWasmIntegration()
     setContainerElements(filtered);
 
     // install browser window resize handler
-    emscripten_set_resize_callback(EMSCRIPTEN_EVENT_TARGET_WINDOW, nullptr, EM_TRUE,
-                                   [](int, const EmscriptenUiEvent *, void *) -> EM_BOOL {
-                                       // This resize event is called when the HTML window is
-                                       // resized. Depending on the page layout the elements might
-                                       // also have been resized, so we update the Qt screen sizes
-                                       // (and canvas render sizes).
-                                       if (QWasmIntegration *integration = QWasmIntegration::get())
-                                           integration->resizeAllScreens();
-                                       return EM_FALSE;
-                                   });
+    emscripten::val window = emscripten::val::global("window");
+    window.call<void>("addEventListener", val("resize"),
+                      val::module_property("qtResizeAllScreens"));
 
     // install visualViewport resize handler which picks up size and scale change on mobile.
-    emscripten::val visualViewport = emscripten::val::global("window")["visualViewport"];
+    emscripten::val visualViewport = window["visualViewport"];
     if (!visualViewport.isUndefined()) {
         visualViewport.call<void>("addEventListener", val("resize"),
                                   val::module_property("qtResizeAllScreens"));
@@ -159,9 +152,11 @@ QWasmIntegration::QWasmIntegration()
 
 QWasmIntegration::~QWasmIntegration()
 {
-    // Remove event listener
-    emscripten_set_resize_callback(EMSCRIPTEN_EVENT_TARGET_WINDOW, nullptr, EM_TRUE, nullptr);
-    emscripten::val visualViewport = emscripten::val::global("window")["visualViewport"];
+    // Remove event listeners
+    emscripten::val window = emscripten::val::global("window");
+    window.call<void>("removeEventListener", val("resize"),
+                      val::module_property("qtResizeAllScreens"));
+    emscripten::val visualViewport = window["visualViewport"];
     if (!visualViewport.isUndefined()) {
         visualViewport.call<void>("removeEventListener", val("resize"),
                           val::module_property("qtResizeAllScreens"));
@@ -445,7 +440,7 @@ void QWasmIntegration::loadLocalFontFamilies(emscripten::val families)
 
 quint64 QWasmIntegration::getTimestamp()
 {
-    return emscripten_performance_now();
+    return emscripten::val::global("performance").call<double>("now");
 }
 
 #if QT_CONFIG(draganddrop)
