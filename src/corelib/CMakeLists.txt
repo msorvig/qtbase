@@ -1544,8 +1544,10 @@ qt_internal_extend_target(Core CONDITION WASM
 qt_internal_extend_target(Core CONDITION WASI
     INCLUDE_DIRECTORIES
         platform/wasm/shims
+        ${QT_NOTSCRIPTEN_INCLUDE_DIR}
     PUBLIC_INCLUDE_DIRECTORIES
         platform/wasm/shims
+        ${QT_NOTSCRIPTEN_INCLUDE_DIR}
 )
 
 qt_internal_extend_target(Core CONDITION QT_FEATURE_ctf

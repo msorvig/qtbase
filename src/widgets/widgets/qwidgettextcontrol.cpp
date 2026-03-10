@@ -58,7 +58,7 @@
 #endif
 #include <QtGui/qaccessible.h>
 #include <QtCore/qmetaobject.h>
-#ifdef Q_OS_WASM
+#ifdef Q_OS_WEB
 #include <QtCore/private/qstdweb_p.h>
 #endif
 
@@ -510,7 +510,7 @@ void QWidgetTextControlPrivate::setContent(Qt::TextFormat format, const QString 
 void QWidgetTextControlPrivate::startDrag()
 {
 
-#ifdef Q_OS_WASM
+#ifdef Q_OS_WEB
     // QDrag::exec() will crash without asyncify; disable drag instead.
     if (!qstdweb::haveAsyncify())
         return;

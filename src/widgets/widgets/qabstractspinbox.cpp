@@ -3,7 +3,7 @@
 // Qt-Security score:significant reason:default
 
 #include <qplatformdefs.h>
-#ifdef Q_OS_WASM
+#ifdef Q_OS_WEB
 # include <private/qstdweb_p.h>
 #endif
 #include <private/qabstractspinbox_p.h>
@@ -1294,7 +1294,7 @@ void QAbstractSpinBox::timerEvent(QTimerEvent *event)
 #if QT_CONFIG(contextmenu)
 void QAbstractSpinBox::contextMenuEvent(QContextMenuEvent *event)
 {
-#ifdef Q_OS_WASM
+#ifdef Q_OS_WEB
     if (!qstdweb::haveAsyncify()) {
         qDebug() << " Skipping context menu for spinbox since asyncify is off";
         return;
