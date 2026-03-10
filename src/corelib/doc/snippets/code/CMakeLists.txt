@@ -113,7 +113,7 @@ if(QT_FEATURE_process)
     )
 endif()
 
-if(NOT EMSCRIPTEN)
+if(NOT EMSCRIPTEN AND NOT WASI)
     target_sources(corelib_snippets_code PRIVATE
         src_corelib_kernel_qsystemsemaphore.cpp
     )
