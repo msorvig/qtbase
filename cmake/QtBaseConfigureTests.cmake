@@ -52,7 +52,7 @@ function(qt_internal_run_config_test_architecture)
     set(_arch_file_suffix "${CMAKE_EXECUTABLE_SUFFIX}")
     # With emscripten the application entry point is a .js file (to be run with node for example),
     # but the real "data" is in the .wasm file, so that's where we need to look for the ABI, etc.
-    # information.
+    # information. WASI executables are already .wasm, so this only applies to Emscripten.
     if (WASM)
         set(_arch_file_suffix ".wasm")
     endif()

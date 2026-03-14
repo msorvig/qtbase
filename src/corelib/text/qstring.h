@@ -12,6 +12,10 @@
 #error QT_NO_CAST_FROM_ASCII and QT_RESTRICTED_CAST_FROM_ASCII must not be defined at the same time
 #endif
 
+#if (defined(Q_OS_WEB) || defined(__EMSCRIPTEN__)) && !defined(Q_QDOC)
+#  include <emscripten/val.h>
+#endif
+
 #include <QtCore/qchar.h>
 #include <QtCore/qcompare.h>
 #include <QtCore/qbytearray.h>
@@ -1121,7 +1125,7 @@ public:
     NSString *toNSString() const Q_DECL_NS_RETURNS_AUTORELEASED;
 #endif
 
-#if defined(__EMSCRIPTEN__) || defined(Q_QDOC)
+#if defined(Q_OS_WEB) || defined(__EMSCRIPTEN__) || defined(Q_QDOC)
     static QString fromEcmaString(emscripten::val jsString);
     emscripten::val toEcmaString() const;
 #endif

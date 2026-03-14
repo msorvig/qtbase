@@ -26,7 +26,9 @@
 #if QT_CONFIG(draganddrop)
 #include "qwasmdrag.h"
 #endif
+#if QT_CONFIG(opengl)
 #include "qwasmopenglcontext.h"
+#endif
 
 #include <iostream>
 #include <sstream>
@@ -241,7 +243,9 @@ void QWasmWindow::registerEventHandlers()
 
 QWasmWindow::~QWasmWindow()
 {
+#if QT_CONFIG(opengl)
     QWasmOpenGLContext::destroyWebGLContext(this);
+#endif
 
 #if QT_CONFIG(accessibility)
     QWasmAccessibility::onRemoveWindow(window());

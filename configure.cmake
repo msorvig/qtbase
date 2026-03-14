@@ -166,9 +166,13 @@ qt_internal_check_if_linker_is_available(use_mold_linker
     )
 unset(__qt_internal_mold_linker_flags)
 
+find_program(QT_INTERNAL_LINKER_WELD weld)
+if(QT_INTERNAL_LINKER_WELD)
+    set(__qt_internal_weld_linker_flags "--ld-path=${QT_INTERNAL_LINKER_WELD}")
+endif()
 qt_internal_check_if_linker_is_available(use_weld_linker
     LABEL "weld linker"
-    FLAG "-fuse-ld=weld"
+    FLAG "${__qt_internal_weld_linker_flags}"
     )
 
 qt_feature("use_bfd_linker"

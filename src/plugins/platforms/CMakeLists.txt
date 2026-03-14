@@ -47,7 +47,7 @@ endif()
 if(HAIKU)
     # add_subdirectory(haiku) # TODO: QTBUG-112768
 endif()
-if(WASM)
+if(WASM OR WASI)
      add_subdirectory(wasm)
 endif()
 if(QT_FEATURE_integrityfb)

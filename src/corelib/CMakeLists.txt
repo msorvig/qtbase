@@ -690,7 +690,7 @@ if(NOT WIN32)
     set_source_files_properties(kernel/qwineventnotifier.h PROPERTIES SKIP_AUTOMOC ON)
 endif()
 
-qt_internal_extend_target(Core CONDITION WASM
+qt_internal_extend_target(Core CONDITION WASM OR WASI
     SOURCES
         kernel/qcore_wasm.cpp)
 
@@ -953,7 +953,7 @@ qt_internal_extend_target(Core CONDITION QT_FEATURE_winsdkicu
         icuuc icuin
 )
 
-qt_internal_extend_target(Core CONDITION WASM
+qt_internal_extend_target(Core CONDITION WASM OR WASI
     SOURCES
         text/qlocale_wasm.cpp
 )
@@ -1526,28 +1526,34 @@ if(QT_FEATURE_mimetype AND QT_FEATURE_mimetype_database)
     )
 endif()
 
-qt_internal_extend_target(Core CONDITION WASM
+# Shared WASM platform code (both Emscripten and WASI)
+qt_internal_extend_target(Core CONDITION WASM OR WASI
     SOURCES
-        platform/wasm/qwasmanimationdriver.cpp platform/wasm/qwasmanimationdriver_p.h
-        platform/wasm/qwasmglobal.cpp platform/wasm/qwasmglobal_p.h
         platform/wasm/qstdweb.cpp platform/wasm/qstdweb_p.h
-        platform/wasm/qwasmsocket.cpp platform/wasm/qwasmsocket_p.h
         platform/wasm/qwasmsuspendresumecontrol.cpp platform/wasm/qwasmsuspendresumecontrol_p.h
         platform/wasm/qwasmlocalfileengine.cpp platform/wasm/qwasmlocalfileengine_p.h
-        kernel/qeventdispatcher_wasm.cpp kernel/qeventdispatcher_wasm_p.h
     INCLUDE_DIRECTORIES
         platform/wasm/shims
     PUBLIC_INCLUDE_DIRECTORIES
         platform/wasm/shims
 )
 
+# Emscripten-only WASM platform code
+qt_internal_extend_target(Core CONDITION WASM AND NOT WASI
+    SOURCES
+        platform/wasm/qwasmanimationdriver.cpp platform/wasm/qwasmanimationdriver_p.h
+        platform/wasm/qwasmglobal.cpp platform/wasm/qwasmglobal_p.h
+        platform/wasm/qwasmsocket.cpp platform/wasm/qwasmsocket_p.h
+        kernel/qeventdispatcher_wasm.cpp kernel/qeventdispatcher_wasm_p.h
+)
+
+# WASI: add NuScripten include path
+set(NUSCRIPTEN_INCLUDE_DIR "$ENV{HOME}/code/nuscripten/include")
 qt_internal_extend_target(Core CONDITION WASI
     INCLUDE_DIRECTORIES
-        platform/wasm/shims
-        ${QT_NOTSCRIPTEN_INCLUDE_DIR}
+        ${NUSCRIPTEN_INCLUDE_DIR}
     PUBLIC_INCLUDE_DIRECTORIES
-        platform/wasm/shims
-        ${QT_NOTSCRIPTEN_INCLUDE_DIR}
+        ${NUSCRIPTEN_INCLUDE_DIR}
 )
 
 qt_internal_extend_target(Core CONDITION QT_FEATURE_ctf

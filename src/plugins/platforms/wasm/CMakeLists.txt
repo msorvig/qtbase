@@ -23,7 +23,6 @@ qt_internal_add_plugin(QWasmIntegrationPlugin
         qwasmintegration.cpp qwasmintegration.h
         qwasmkeytranslator.cpp qwasmkeytranslator.h
         qwasmoffscreensurface.cpp qwasmoffscreensurface.h
-        qwasmopenglcontext.cpp qwasmopenglcontext.h
         qwasmplatform.cpp qwasmplatform.h
         qwasmscreen.cpp qwasmscreen.h
         qwasmservices.cpp qwasmservices.h
@@ -46,6 +45,9 @@ qt_internal_add_plugin(QWasmIntegrationPlugin
         ../../../3rdparty/wasm
     QT_LICENSE_ID QT_COMMERCIAL_OR_GPL3
 )
+
+# For WASI builds: the emscripten compat shims and NuScripten includes
+# are propagated via Qt::CorePrivate's PUBLIC_INCLUDE_DIRECTORIES.
 
 # Resources:
 set(wasmfonts_resource_files
@@ -74,6 +76,7 @@ qt_internal_extend_target(QWasmIntegrationPlugin CONDITION QT_FEATURE_draganddro
 
 qt_internal_extend_target(QWasmIntegrationPlugin CONDITION QT_FEATURE_opengl
     SOURCES
+        qwasmopenglcontext.cpp qwasmopenglcontext.h
         qwasmbackingstore.cpp qwasmbackingstore.h
     LIBRARIES
         Qt::OpenGL

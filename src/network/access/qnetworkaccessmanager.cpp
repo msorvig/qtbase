@@ -59,6 +59,9 @@
 #ifdef __EMSCRIPTEN__
 #include "qnetworkreplywasmimpl_p.h"
 #endif
+#if defined(Q_OS_WEB) && !defined(__EMSCRIPTEN__)
+#include "qnetworkreplywebimpl_p.h"
+#endif
 #ifdef Q_OS_WASM
 #include "qhttpmultipart.h"
 #include "qhttpmultipart_p.h"
@@ -1298,6 +1301,16 @@ QNetworkReply *QNetworkAccessManager::createRequest(QNetworkAccessManager::Opera
     if (scheme == "http"_L1 || scheme == "https"_L1 || scheme.isEmpty()) {
         QNetworkReplyWasmImpl *reply = new QNetworkReplyWasmImpl(this);
         QNetworkReplyWasmImplPrivate *priv = reply->d_func();
+        priv->manager = this;
+        priv->setup(op, request, outgoingData);
+        return reply;
+    }
+#elif defined(Q_OS_WEB)
+    Q_UNUSED(isLocalFile);
+    // Support http, https, and relative urls via JavaScript fetch() API
+    if (scheme == "http"_L1 || scheme == "https"_L1 || scheme.isEmpty()) {
+        QNetworkReplyWebImpl *reply = new QNetworkReplyWebImpl(this);
+        QNetworkReplyWebImplPrivate *priv = reply->d_func();
         priv->manager = this;
         priv->setup(op, request, outgoingData);
         return reply;

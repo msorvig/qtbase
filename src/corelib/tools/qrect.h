@@ -5,6 +5,10 @@
 #ifndef QRECT_H
 #define QRECT_H
 
+#if (defined(Q_OS_WEB) || defined(__EMSCRIPTEN__)) && !defined(Q_QDOC)
+#  include <emscripten/val.h>
+#endif
+
 #include <QtCore/qcheckedint_impl.h>
 #include <QtCore/qhashfunctions.h>
 #include <QtCore/qmargins.h>
@@ -631,7 +635,7 @@ public:
     [[nodiscard]] CGRect toCGRect() const noexcept;
 #endif
 
-#if defined(__EMSCRIPTEN__) || defined(Q_QDOC)
+#if defined(Q_OS_WEB) || defined(__EMSCRIPTEN__) || defined(Q_QDOC)
     [[nodiscard]] static QRectF fromDOMRect(emscripten::val domRect);
     [[nodiscard]] emscripten::val toDOMRect() const;
 #endif

@@ -22,6 +22,11 @@ function(qt_internal_setup_wasi_target_properties wasiTarget)
     # WASI libc emulations for APIs that don't have native implementations
     target_compile_definitions("${wasiTarget}" INTERFACE
         _WASI_EMULATED_MMAN _WASI_EMULATED_SIGNAL _WASI_EMULATED_GETPID)
+
+    # Define Q_OS_WEB when targeting the web via NuScripten.
+    # This enables JS/DOM interop APIs (EcmaString, DOMRect, val) and the wasm QPA plugin.
+    # TODO: make this conditional on a configure option for non-web WASI targets.
+    target_compile_definitions("${wasiTarget}" INTERFACE Q_OS_WEB)
     target_link_options("${wasiTarget}" INTERFACE
         -lwasi-emulated-mman -lwasi-emulated-signal -lwasi-emulated-getpid)
 

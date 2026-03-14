@@ -4,8 +4,10 @@
 #ifndef QWASMGLOBAL_P_H
 #define QWASMGLOBAL_P_H
 
+#if QT_CONFIG(thread)
 #include <emscripten/proxying.h>
 #include <emscripten/threading.h>
+#endif
 
 //
 //  W A R N I N G

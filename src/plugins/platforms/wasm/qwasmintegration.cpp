@@ -4,7 +4,9 @@
 #include "qwasmintegration.h"
 #include "qwasmeventdispatcher.h"
 #include "qwasmcompositor.h"
+#if QT_CONFIG(opengl)
 #include "qwasmopenglcontext.h"
+#endif
 #include "qwasmtheme.h"
 #if QT_CONFIG(clipboard)
 #include "qwasmclipboard.h"
@@ -14,7 +16,9 @@
 #include "qwasmoffscreensurface.h"
 #include "qwasmplatform.h"
 #include "qwasmwindow.h"
+#if QT_CONFIG(opengl)
 #include "qwasmbackingstore.h"
+#endif
 #include "qwasmfontdatabase.h"
 #if QT_CONFIG(draganddrop)
 #include "qwasmdrag.h"
