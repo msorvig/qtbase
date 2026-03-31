@@ -272,6 +272,10 @@ macro(qt_internal_qtbase_build_repo)
 
         if(WASI)
             qt_internal_setup_wasi_target_properties(Platform)
+            # setjmp/longjmp requires wasm exception handling; must be global for 3rdparty libs
+            if(QT_FEATURE_wasm_exceptions)
+                add_compile_options("SHELL:-mllvm -wasm-enable-sjlj")
+            endif()
         endif()
 
         # Set up optimization flags like in qmake.

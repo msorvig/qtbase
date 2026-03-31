@@ -6,9 +6,9 @@ function(qt_internal_setup_wasi_target_properties wasiTarget)
     # exceptions
     if(QT_FEATURE_wasm_exceptions)
         target_compile_options("${wasiTarget}" INTERFACE
-            -fwasm-exceptions -mllvm --wasm-use-legacy-eh=false)
+            -fwasm-exceptions "SHELL:-mllvm --wasm-use-legacy-eh=false")
         target_link_options("${wasiTarget}" INTERFACE
-            -fwasm-exceptions -mllvm --wasm-use-legacy-eh=false)
+            -fwasm-exceptions "SHELL:-mllvm --wasm-use-legacy-eh=false")
     elseif(QT_FEATURE_exceptions)
         target_compile_options("${wasiTarget}" INTERFACE -fexceptions)
         target_link_options("${wasiTarget}" INTERFACE -fexceptions)

@@ -1535,7 +1535,7 @@ qt_internal_extend_target(Core CONDITION WASM OR WASI
     INCLUDE_DIRECTORIES
         platform/wasm/shims
     PUBLIC_INCLUDE_DIRECTORIES
-        platform/wasm/shims
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/platform/wasm/shims>
 )
 
 # Emscripten-only WASM platform code
@@ -1547,13 +1547,12 @@ qt_internal_extend_target(Core CONDITION WASM AND NOT WASI
         kernel/qeventdispatcher_wasm.cpp kernel/qeventdispatcher_wasm_p.h
 )
 
-# WASI: add NuScripten include path
-set(NUSCRIPTEN_INCLUDE_DIR "$ENV{HOME}/code/nuscripten/include")
+# WASI: add nuscripten include path
 qt_internal_extend_target(Core CONDITION WASI
     INCLUDE_DIRECTORIES
-        ${NUSCRIPTEN_INCLUDE_DIR}
+        ${QT_NUSCRIPTEN_INCLUDE_DIR}
     PUBLIC_INCLUDE_DIRECTORIES
-        ${NUSCRIPTEN_INCLUDE_DIR}
+        $<BUILD_INTERFACE:${QT_NUSCRIPTEN_INCLUDE_DIR}>
 )
 
 qt_internal_extend_target(Core CONDITION QT_FEATURE_ctf

@@ -1,7 +1,7 @@
 // Copyright (C) 2026 The Qt Company Ltd.
 // SPDX-License-Identifier: LicenseRef-Qt-Commercial OR LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only
 //
-// Emscripten val.h compatibility shim for NuScripten/WASI builds.
+// Emscripten val.h compatibility shim for nuscripten/WASI builds.
 // Maps emscripten::val API to nuscripten::val.
 
 #ifndef QT_EMSCRIPTEN_VAL_SHIM_H
@@ -11,7 +11,7 @@
 #  include_next <emscripten/val.h>
 #else
 
-#include <val.h>  // NuScripten val
+#include <val.h>  // nuscripten val
 #include <string>
 #include <vector>
 #include <type_traits>
@@ -117,7 +117,7 @@ public:
     void set(const char* name, int value) { v_.set(name, value); }
     void set(const val& key, const val& value) {
         // Use JS bracket notation: obj[key] = value
-        // NuScripten doesn't have set-by-val, so convert key to string
+        // nuscripten doesn't have set-by-val, so convert key to string
         v_.set(key.v_.toString(), value.v_);
     }
     void set(int index, const val& value) {
@@ -212,7 +212,7 @@ public:
     // Handle-based ownership (emscripten-specific)
     static val take_ownership(EM_VAL handle) {
         // In emscripten, this takes ownership of a handle from EM_JS.
-        // For NuScripten compat, return undefined.
+        // For nuscripten compat, return undefined.
         (void)handle;
         return val();
     }
