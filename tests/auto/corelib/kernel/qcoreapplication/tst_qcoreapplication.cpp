@@ -55,6 +55,7 @@ public:
     }
 };
 
+#if QT_CONFIG(thread)
 class Thread : public QDaemonThread
 {
     void run() override
@@ -69,6 +70,7 @@ public:
     Thread() : requiresCoreApplication(true) {}
     bool requiresCoreApplication;
 };
+#endif // QT_CONFIG(thread)
 
 void tst_QCoreApplication::sendEventsOnProcessEvents()
 {
@@ -1415,6 +1417,7 @@ void tst_QCoreApplication::applicationEventFilters_auxThread()
     QVERIFY(!spy.recordedEvents.contains(QEvent::User + 1));
 }
 
+#if QT_CONFIG(thread)
 void tst_QCoreApplication::threadedEventDelivery_data()
 {
     QTest::addColumn<bool>("requiresCoreApplication");
@@ -1450,6 +1453,7 @@ void tst_QCoreApplication::threadedEventDelivery()
     QCOMPARE(receiver.recordedEvents.contains(QEvent::User + 1), eventsReceived);
 
 }
+#endif // QT_CONFIG(thread)
 
 void tst_QCoreApplication::testTrWithPercantegeAtTheEnd()
 {

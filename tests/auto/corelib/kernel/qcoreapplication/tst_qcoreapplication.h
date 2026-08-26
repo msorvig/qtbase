@@ -52,8 +52,10 @@ private slots:
     void eventDestructorDeleteLaterAtAppDestruction();
     void applicationEventFilters_mainThread();
     void applicationEventFilters_auxThread();
+#if QT_CONFIG(thread)
     void threadedEventDelivery_data();
     void threadedEventDelivery();
+#endif
 
     // also add to tst_qapplication.cpp
     void exitFromEventLoop() { QCoreApplicationTestHelper::run(); }

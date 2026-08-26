@@ -10,7 +10,9 @@
 #endif
 #include <QScopeGuard>
 #include <QVersionNumber>
+#if QT_CONFIG(thread)
 #include <private/qlatch_p.h>
+#endif
 
 #include <qcoreapplication.h>
 #include <qfileinfo.h>
@@ -115,7 +117,9 @@ private slots:
     void asyncReadDatagram();
     void writeInHostLookupState();
 
+#if QT_CONFIG(thread)
     void readyReadConnectionThrottling();
+#endif
 
 protected slots:
     void empty_readyReadSlot();
@@ -2163,6 +2167,7 @@ void tst_QUdpSocket::writeInHostLookupState()
     QVERIFY(!socket.putChar('0'));
 }
 
+#if QT_CONFIG(thread)
 void tst_QUdpSocket::readyReadConnectionThrottling()
 {
     QFETCH_GLOBAL(bool, setProxy);
@@ -2235,6 +2240,7 @@ void tst_QUdpSocket::readyReadConnectionThrottling()
     QVERIFY2(QTest::qWaitFor([&] { return count >= MaxCount; }, 10s),
              QByteArray::number(count).constData());
 }
+#endif // QT_CONFIG(thread)
 
 QTEST_MAIN(tst_QUdpSocket)
 #include "tst_qudpsocket.moc"

@@ -489,6 +489,7 @@ void tst_QTcpSocket::bind_data()
 
     bool testIpv6 = false;
 
+#if QT_CONFIG(networkinterface)
     // iterate all interfaces, add all addresses on them as test data
     const QList<QNetworkInterface> interfaces = QNetworkInterface::allInterfaces();
     for (const QNetworkInterface &netinterface : interfaces) {
@@ -508,6 +509,7 @@ void tst_QTcpSocket::bind_data()
                 testIpv6 = true;
         }
     }
+#endif // QT_CONFIG(networkinterface)
 
     // test binding to localhost
     QTest::newRow("0.0.0.0:0") << "0.0.0.0" << 0 << true << "0.0.0.0";

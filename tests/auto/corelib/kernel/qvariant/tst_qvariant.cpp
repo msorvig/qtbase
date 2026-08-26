@@ -5261,6 +5261,8 @@ static void testMetaSequenceIteration()
     QCOMPARE(varList.size(), 6);
     compareLists(varList);
 
+    // same std::sort problem as in testSequentialIteration()
+#if !defined(Q_OS_WASM)
     if (listIter.canRandomAccessIterate())
         sortIterable<QMetaSequence::Iterable::RandomAccessIterator>(&listIter);
     else if (listIter.canReverseIterate() || listIter.canForwardIterate())
@@ -5278,6 +5280,7 @@ static void testMetaSequenceIteration()
         // method we should use to remove an item.
         QVERIFY((std::is_same_v<Container, QString> || std::is_same_v<Container, QByteArray>));
     }
+#endif // !defined(Q_OS_WASM)
 
     auto i = listIter.mutableBegin();
     QVERIFY(i != listIter.mutableEnd());
@@ -5467,6 +5470,11 @@ static void testSequentialIteration()
 
     QCOMPARE(listIter.size(), 6);
 
+    // std::sort instantiated on a QTaggedIterator fails to compile with newer
+    // libc++ (as used by emsdk 6.0.x+), which subscripts random access iterators
+    // in std::__sift_down: QTaggedIterator advertises random_access_iterator_tag
+    // but provides no operator[]
+#if !defined(Q_OS_WASM)
     if (listIter.canRandomAccessIterate())
         sortIterable<QMetaSequence::Iterable::RandomAccessIterator>(&listIter);
     else if (listIter.canReverseIterate() || listIter.canForwardIterate())
@@ -5499,6 +5507,7 @@ static void testSequentialIteration()
         // method we should use to remove an item.
         QVERIFY((std::is_same_v<Container, QString> || std::is_same_v<Container, QByteArray>));
     }
+#endif // !defined(Q_OS_WASM)
 
     auto i = listIter.mutableBegin();
     QVERIFY(i != listIter.mutableEnd());
