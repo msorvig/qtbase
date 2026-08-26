@@ -8,6 +8,7 @@
 
 #ifndef QT_NO_QOBJECT
 #include "qabstracteventdispatcher.h"
+#include "private/qabstracteventdispatcher_p.h"
 #include "qcoreevent.h"
 #include "qcoreevent_p.h"
 #include "qeventloop.h"
