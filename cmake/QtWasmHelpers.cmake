@@ -131,11 +131,14 @@ function (qt_internal_setup_wasm_target_properties wasmTarget)
         set(enable_side_module_if_needed
             "$<$<IN_LIST:$<TARGET_PROPERTY:TYPE>,${side_modules}>:SHELL:-s SIDE_MODULE=1>")
         set(enable_main_module_if_needed
-            "$<$<IN_LIST:$<TARGET_PROPERTY:TYPE>,EXECUTABLE>:SHELL:-sMAIN_MODULE=1 ${executable_link_flags}>")
+            "$<$<IN_LIST:$<TARGET_PROPERTY:TYPE>,EXECUTABLE>:SHELL:-sMAIN_MODULE=1>")
         set(set_shared_module_type_if_needed
             "${enable_side_module_if_needed}"
             "${enable_main_module_if_needed}"
         )
+        # add link option only, MAIN_MODULE/SIDE_MODULE above are compile options as well
+        set(add_executable_link_flags
+            "$<$<IN_LIST:$<TARGET_PROPERTY:TYPE>,EXECUTABLE>:SHELL:${executable_link_flags}>")
 
         # Add Qt libdir to linker library paths
         set(qt_lib_location
@@ -144,7 +147,8 @@ function (qt_internal_setup_wasm_target_properties wasmTarget)
             "$<$<STREQUAL:$<TARGET_PROPERTY:TYPE>,EXECUTABLE>:SHELL:" -L${qt_lib_location}/>)
 
         target_compile_options("${wasmTarget}" INTERFACE "${set_shared_module_type_if_needed}")
-        target_link_options("${wasmTarget}" INTERFACE "${set_shared_module_type_if_needed}")
+        target_link_options("${wasmTarget}" INTERFACE "${set_shared_module_type_if_needed}"
+            "${add_executable_link_flags}")
 
     else()
         target_link_options("${wasmTarget}" INTERFACE "SHELL:-sERROR_ON_UNDEFINED_SYMBOLS=1 ${executable_link_flags}")
