@@ -6,4 +6,7 @@ add_subdirectory(localfileapi)
 add_subdirectory(qwasmwindowstack)
 add_subdirectory(qwasmwindowtreenode)
 add_subdirectory(qwasmpromise)
-add_subdirectory(selenium)
+# calls QWasmAccessibilityEnable() in the statically linked platform plugin
+if(NOT QT_FEATURE_shared)
+    add_subdirectory(selenium)
+endif()

@@ -2,12 +2,14 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 if(QT_FEATURE_private_tests)
-    add_subdirectory(qhttpsocketengine)
     add_subdirectory(qtcpsocket)
     add_subdirectory(qsocks5socketengine)
     add_subdirectory(platformsocketengine)
 endif()
-if(QT_FEATURE_udpsocket)
+if(QT_FEATURE_private_tests AND QT_FEATURE_http)
+    add_subdirectory(qhttpsocketengine)
+endif()
+if(QT_FEATURE_udpsocket AND QT_FEATURE_networkinterface)
     add_subdirectory(qudpsocket)
 endif()
 add_subdirectory(qabstractsocket)

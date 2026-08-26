@@ -694,9 +694,11 @@ void tst_QNetworkRequest::operatorEqual_data()
     QTest::newRow("timeout-10-6") << data10 << data4 << false;
     QTest::newRow("timeout-10-7") << data10 << data5 << false;
     QTest::newRow("timeout-10-8") << data10 << data6 << false;
+#if QT_CONFIG(http)
     QTest::newRow("timeout-10-9") << data10 << data7 << false;
     QTest::newRow("timeout-10-10") << data10 << data8 << false;
     QTest::newRow("timeout-10-11") << data10 << data9 << false;
+#endif
 #endif
 }
 
