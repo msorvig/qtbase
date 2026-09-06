@@ -1114,6 +1114,10 @@ qt_feature("metal" PUBLIC
     LABEL "Metal"
     CONDITION MACOS OR IOS OR VISIONOS
 )
+qt_feature("webgpu" PUBLIC
+    LABEL "WebGPU"
+    CONDITION WASM OR MACOS OR WIN32 OR LINUX
+)
 qt_feature("vkkhrdisplay" PRIVATE
     SECTION "Platform plugins"
     LABEL "VK_KHR_display"
@@ -1674,6 +1678,7 @@ qt_configure_add_summary_entry(ARGS "opengles32")
 qt_configure_end_summary_section() # end of "OpenGL" section
 qt_configure_add_summary_entry(ARGS "vulkan")
 qt_configure_add_summary_entry(ARGS "metal")
+qt_configure_add_summary_entry(ARGS "webgpu")
 qt_configure_add_summary_entry(ARGS "graphicsframecapture")
 qt_configure_add_summary_entry(ARGS "sessionmanager")
 qt_configure_add_summary_entry(

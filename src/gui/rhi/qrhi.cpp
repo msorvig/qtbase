@@ -21,6 +21,9 @@
 #if QT_CONFIG(metal)
 #include "qrhimetal_p.h"
 #endif
+#ifdef QT_WEBGPU_BACKEND_AVAILABLE
+#include "qrhiwebgpu_p.h"
+#endif
 
 #include <limits>
 #include <memory>
@@ -10067,6 +10070,15 @@ QRhiImplementation *QRhiImplementation::newInstance(QRhi::Implementation impl, Q
         qWarning("This platform has no Direct3D 12 support");
         break;
 #endif
+    case QRhi::WebGPU:
+#ifdef QT_WEBGPU_BACKEND_AVAILABLE
+        d = new QRhiWebGPU(static_cast<QRhiWebGPUInitParams *>(params),
+                           static_cast<QRhiWebGPUNativeHandles *>(importDevice));
+        break;
+#else
+        qWarning("This build of Qt has no WebGPU support");
+        break;
+#endif
     }
 
     return d;
@@ -10337,7 +10349,8 @@ QRhi::AdapterList QRhi::enumerateAdapters(Implementation impl, QRhiInitParams *p
 QRhiSwapChainProxyData QRhi::updateSwapChainProxyData(QRhi::Implementation impl, QWindow *window)
 {
 #if QT_CONFIG(metal)
-    if (impl == Metal)
+    // WebGPU on macOS also uses CAMetalLayer, so share the proxy data logic
+    if (impl == Metal || impl == WebGPU)
         return QRhiMetal::updateSwapChainProxyData(window);
 #else
     Q_UNUSED(impl);
@@ -10373,6 +10386,8 @@ const char *QRhi::backendName(Implementation impl)
         return "Metal";
     case QRhi::D3D12:
         return "D3D12";
+    case QRhi::WebGPU:
+        return "WebGPU";
     }
 
     Q_UNREACHABLE_RETURN("Unknown");
