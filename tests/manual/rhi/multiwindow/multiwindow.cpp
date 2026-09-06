@@ -18,6 +18,12 @@
 #include <QOffscreenSurface>
 #include <rhi/qrhi.h>
 
+#ifdef EXAMPLEFW_QTAGENT
+#include "qtagent.h"
+#include "agentsetup.h"
+static QtAgent *s_agent = nullptr;
+#endif
+
 enum GraphicsApi
 {
     OpenGL,
@@ -219,6 +225,12 @@ public:
     Window(const QString &title, const QColor &bgColor, int axis, bool noVSync);
     ~Window();
 
+#ifdef EXAMPLEFW_QTAGENT
+    QString m_pendingScreenshotPath;
+
+    void saveRhiScreenshot(const QString &path);
+#endif
+
 protected:
     void init();
     void releaseResources();
@@ -289,6 +301,34 @@ Window::~Window()
 {
     releaseResources();
 }
+
+#ifdef EXAMPLEFW_QTAGENT
+void Window::saveRhiScreenshot(const QString &path)
+{
+    if (!m_sc || !m_hasSwapChain) return;
+    QRhiCommandBuffer *cb = m_sc->currentFrameCommandBuffer();
+    if (!cb) return;
+    QRhiReadbackDescription desc;
+    auto *result = new QRhiReadbackResult;
+    result->completed = [result, path] {
+        const QSize sz = result->pixelSize;
+        QImage::Format fmt = result->format == QRhiTexture::BGRA8
+                              ? QImage::Format_ARGB32_Premultiplied
+                              : QImage::Format_RGBA8888_Premultiplied;
+        QImage img(reinterpret_cast<const uchar *>(result->data.constData()),
+                   sz.width(), sz.height(), fmt);
+        if (r.r && r.r->isYUpInFramebuffer())
+            img = img.mirrored();
+        img.save(path);
+        fprintf(stderr, "[examplefw] screenshot saved: %s (%dx%d)\n",
+                qPrintable(path), sz.width(), sz.height());
+        delete result;
+    };
+    QRhiResourceUpdateBatch *rb = r.r->nextResourceUpdateBatch();
+    rb->readBackTexture(desc, result);
+    cb->resourceUpdate(rb);
+}
+#endif
 
 void Window::exposeEvent(QExposeEvent *)
 {
@@ -445,6 +485,13 @@ void Window::render()
 
     cb->endPass();
 
+#ifdef EXAMPLEFW_QTAGENT
+    if (!m_pendingScreenshotPath.isEmpty()) {
+        saveRhiScreenshot(m_pendingScreenshotPath);
+        m_pendingScreenshotPath.clear();
+    }
+#endif
+
     r.r->endFrame(m_sc);
 
     requestUpdate();
@@ -561,6 +608,32 @@ int main(int argc, char **argv)
     });
     layout->addWidget(btn);
     w.show();
+
+#ifdef EXAMPLEFW_QTAGENT
+    {
+        s_agent = new QtAgent;
+        AgentSetup::registerAll(*s_agent);
+
+        // rhi/screenshot: reads back the first rendering window's swapchain.
+        // The window is created on demand (after "New window" is clicked), so
+        // we look it up at call time rather than capture a pointer at startup.
+        s_agent->registerMethod(QStringLiteral("rhi/screenshot"), [](const QJsonObject &p) {
+            QString path = p.value(QStringLiteral("path")).toString();
+            if (path.isEmpty())
+                return QJsonObject{{QStringLiteral("error"), QStringLiteral("'path' required")}};
+            if (d.windows.isEmpty())
+                return QJsonObject{{QStringLiteral("error"), QStringLiteral("no rendering windows yet")}};
+            static_cast<Window *>(d.windows.first())->m_pendingScreenshotPath = path;
+            return QJsonObject{{QStringLiteral("ok"), true}, {QStringLiteral("path"), path}};
+        });
+
+        if (s_agent->start())
+            fprintf(stderr, "[examplefw] QtAgent listening on %s\n",
+                    qPrintable(s_agent->socketPath()));
+        else
+            fprintf(stderr, "[examplefw] QtAgent failed to start\n");
+    }
+#endif
 
     int result = app.exec();
 

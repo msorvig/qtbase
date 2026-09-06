@@ -23,6 +23,11 @@
 #include "imgui.h"
 #endif
 
+#ifdef EXAMPLEFW_QTAGENT
+#include "qtagent.h"
+#include "agentsetup.h"
+#endif
+
 QShader getShader(const QString &name)
 {
     QFile f(name);
@@ -129,6 +134,41 @@ protected:
     QRhiRenderPassDescriptor *m_rp = nullptr;
 
     QMatrix4x4 m_proj;
+
+#ifdef EXAMPLEFW_QTAGENT
+    // Path set by the agent RPC handler; picked up in the next render() call.
+    QString m_pendingScreenshotPath;
+
+    void saveRhiScreenshot(const QString &path) {
+        // Initiate a readback of the swapchain backbuffer.
+        // QRhiReadbackDescription with no texture = read from the swapchain.
+        // Submitted via resourceUpdate() outside a render pass; enqueued into
+        // the current frame's command buffer and fires after GPU finishes.
+        if (!m_r || !m_sc || !m_hasSwapChain) return;
+        QRhiCommandBuffer *cb = m_sc->currentFrameCommandBuffer();
+        if (!cb) return;
+
+        QRhiReadbackDescription desc; // null texture → swapchain backbuffer
+        auto *result = new QRhiReadbackResult;
+        result->completed = [this, result, path] {
+            const QSize sz = result->pixelSize;
+            QImage::Format fmt = result->format == QRhiTexture::BGRA8
+                                  ? QImage::Format_ARGB32_Premultiplied
+                                  : QImage::Format_RGBA8888_Premultiplied;
+            QImage img(reinterpret_cast<const uchar *>(result->data.constData()),
+                       sz.width(), sz.height(), fmt);
+            if (m_r->isYUpInFramebuffer())
+                img = img.mirrored();
+            img.save(path);
+            fprintf(stderr, "[examplefw] screenshot saved: %s (%dx%d)\n",
+                    qPrintable(path), sz.width(), sz.height());
+            delete result;
+        };
+        QRhiResourceUpdateBatch *rb = m_r->nextResourceUpdateBatch();
+        rb->readBackTexture(desc, result);
+        cb->resourceUpdate(rb);
+    }
+#endif
 
     QElapsedTimer m_timer;
     int m_frameCount;
@@ -446,6 +486,13 @@ void Window::render()
 
     customRender();
 
+#ifdef EXAMPLEFW_QTAGENT
+    if (!m_pendingScreenshotPath.isEmpty()) {
+        saveRhiScreenshot(m_pendingScreenshotPath);
+        m_pendingScreenshotPath.clear();
+    }
+#endif
+
     m_r->endFrame(m_sc, endFrameFlags);
 
     if (!scFlags.testFlag(QRhiSwapChain::NoVSync))
@@ -606,6 +653,29 @@ int main(int argc, char **argv)
     w.resize(1280, 720);
     w.setTitle(QCoreApplication::applicationName() + QLatin1String(" - ") + graphicsApiName());
     w.show();
+
+#ifdef EXAMPLEFW_QTAGENT
+    {
+        static QtAgent s_agent;
+        AgentSetup::registerAll(s_agent);
+
+        // rhi/screenshot { path } — reads back the swapchain framebuffer via QRhi;
+        // works for Metal/WebGPU regardless of window Z-order or occlusion.
+        s_agent.registerMethod(QStringLiteral("rhi/screenshot"), [&w](const QJsonObject &p) {
+            QString path = p.value(QStringLiteral("path")).toString();
+            if (path.isEmpty())
+                return QJsonObject{{QStringLiteral("error"), QStringLiteral("'path' required")}};
+            w.m_pendingScreenshotPath = path;
+            return QJsonObject{{QStringLiteral("ok"), true}, {QStringLiteral("path"), path}};
+        });
+
+        if (s_agent.start())
+            fprintf(stderr, "[examplefw] QtAgent listening on %s\n",
+                    qPrintable(s_agent.socketPath()));
+        else
+            fprintf(stderr, "[examplefw] QtAgent failed to start\n");
+    }
+#endif
 
     if (cmdLineParser.isSet(sdOption))
         QTimer::singleShot(5000, qGuiApp, SLOT(quit()));
