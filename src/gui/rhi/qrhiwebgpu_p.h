@@ -93,6 +93,11 @@ struct QWebGPUSampler : public QRhiSampler
     bool create() override;
 
     WGPUSampler sampler = nullptr;
+    // The same sampler with nearest filtering, for textures that cannot be
+    // filtered (depth textures sampled as float, 32-bit float without
+    // float32-filterable). Created on first use.
+    WGPUSampler nonFilteringSampler = nullptr;
+    WGPUSampler nonFilteringVariant();
     uint generation = 0;
     int lastActiveFrameSlot = -1;
     friend class QRhiWebGPU;

@@ -484,6 +484,10 @@ void QWebGPUSampler::destroy()
 
     wgpuSamplerRelease(sampler);
     sampler = nullptr;
+    if (nonFilteringSampler) {
+        wgpuSamplerRelease(nonFilteringSampler);
+        nonFilteringSampler = nullptr;
+    }
 
     QRHI_RES_RHI(QRhiWebGPU);
     if (rhiD)
@@ -600,6 +604,27 @@ bool QWebGPUSampler::create()
     generation += 1;
     rhiD->registerResource(this);
     return true;
+}
+
+WGPUSampler QWebGPUSampler::nonFilteringVariant()
+{
+    if (m_magFilter == Nearest && m_minFilter == Nearest && m_mipmapMode != Linear)
+        return sampler;
+    if (!nonFilteringSampler) {
+        QRHI_RES_RHI(QRhiWebGPU);
+        WGPUSamplerDescriptor desc = WGPU_SAMPLER_DESCRIPTOR_INIT;
+        desc.magFilter = WGPUFilterMode_Nearest;
+        desc.minFilter = WGPUFilterMode_Nearest;
+        desc.mipmapFilter = WGPUMipmapFilterMode_Nearest;
+        desc.addressModeU = toWgpuAddressMode(m_addressU);
+        desc.addressModeV = toWgpuAddressMode(m_addressV);
+        desc.addressModeW = toWgpuAddressMode(m_addressW);
+        desc.lodMinClamp = 0.0f;
+        desc.lodMaxClamp = 1000.0f;
+        desc.maxAnisotropy = 1;
+        nonFilteringSampler = wgpuDeviceCreateSampler(rhiD->device, &desc);
+    }
+    return nonFilteringSampler;
 }
 
 // QWebGPURenderPassDescriptor
@@ -1142,6 +1167,14 @@ bool QWebGPUShaderResourceBindings::createWithBindingMap(const QShader::NativeRe
             // Determine if this is a comparison sampler
             const bool isComparisonSampler = samplerD && samplerD->textureCompareOp() != QRhiSampler::Never;
 
+            // A depth texture is a texture_depth_* in WGSL only when sampled
+            // with a comparison sampler (sampler2DShadow). Sampled with a plain
+            // sampler (sampler2D, e.g. SSAO reading the depth buffer) it is a
+            // texture_2d<f32>, which takes UnfilterableFloat and a
+            // non-filtering sampler.
+            const bool depthAsFloat = isDepthTexture && !isComparisonSampler;
+            const bool needsNonFilteringSampler = !isComparisonSampler && (isUnfilterableFloat || depthAsFloat);
+
             if (textureBinding >= 0) {
                 const bool isMultisampled = texD && texD->samples > 1;
                 WGPUTextureViewDimension viewDim = WGPUTextureViewDimension_2D;
@@ -1157,9 +1190,10 @@ bool QWebGPUShaderResourceBindings::createWithBindingMap(const QShader::NativeRe
                 texLayoutEntry.binding = uint32_t(textureBinding);
                 texLayoutEntry.visibility = toWgpuShaderStage(b->stage);
                 // Multisampled textures cannot use filterable-float; use UnfilterableFloat.
-                texLayoutEntry.texture.sampleType = isDepthTexture
+                texLayoutEntry.texture.sampleType = isDepthTexture && !depthAsFloat
                     ? WGPUTextureSampleType_Depth
-                    : (isMultisampled || isUnfilterableFloat ? WGPUTextureSampleType_UnfilterableFloat : WGPUTextureSampleType_Float);
+                    : (isMultisampled || isUnfilterableFloat || depthAsFloat
+                       ? WGPUTextureSampleType_UnfilterableFloat : WGPUTextureSampleType_Float);
                 texLayoutEntry.texture.viewDimension = viewDim;
                 texLayoutEntry.texture.multisampled = isMultisampled ? WGPU_TRUE : WGPU_FALSE;
                 layoutEntries.append(texLayoutEntry);
@@ -1178,13 +1212,14 @@ bool QWebGPUShaderResourceBindings::createWithBindingMap(const QShader::NativeRe
                 samplerLayoutEntry.visibility = toWgpuShaderStage(b->stage);
                 samplerLayoutEntry.sampler.type = isComparisonSampler
                     ? WGPUSamplerBindingType_Comparison
-                    : (isUnfilterableFloat ? WGPUSamplerBindingType_NonFiltering : WGPUSamplerBindingType_Filtering);
+                    : (needsNonFilteringSampler ? WGPUSamplerBindingType_NonFiltering : WGPUSamplerBindingType_Filtering);
                 layoutEntries.append(samplerLayoutEntry);
 
                 if (!layoutOnly) {
                     WGPUBindGroupEntry samplerGroupEntry = WGPU_BIND_GROUP_ENTRY_INIT;
                     samplerGroupEntry.binding = uint32_t(samplerBinding);
-                    samplerGroupEntry.sampler = samplerD->sampler;
+                    samplerGroupEntry.sampler = needsNonFilteringSampler ? samplerD->nonFilteringVariant()
+                                                                         : samplerD->sampler;
                     groupEntries.append(samplerGroupEntry);
                 }
             }
