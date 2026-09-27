@@ -144,7 +144,9 @@ QWasmWindow::QWasmWindow(QWindow *w,
     if (QWasmAccessibility::isEnabled())
         onAccessibilityEnable();
 
-    const bool rendersTo2dContext = w->surfaceType() != QSurface::OpenGLSurface;
+    // Only raster windows draw with a 2d context. Other surface types render to the
+    // canvas with WebGL or WebGPU, and a canvas can only ever have one context type.
+    const bool rendersTo2dContext = w->surfaceType() == QSurface::RasterSurface;
     if (rendersTo2dContext)
         m_context2d = m_canvas.call<emscripten::val>("getContext", emscripten::val("2d"));
 
