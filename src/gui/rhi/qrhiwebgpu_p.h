@@ -488,6 +488,18 @@ public:
         quint32 readSize = 0;
     };
     QVarLengthArray<BufferReadback, 2> activeBufferReadbacks;
+
+    // Mipmap generation: WebGPU has no built-in equivalent, so each level is
+    // rendered from the one above it with a linear-filtering blit.
+    struct MipGen {
+        WGPUShaderModule module = nullptr;
+        WGPUSampler sampler = nullptr;
+        WGPUBindGroupLayout bindGroupLayout = nullptr;
+        WGPUPipelineLayout pipelineLayout = nullptr;
+        QHash<int, WGPURenderPipeline> pipelines; // by WGPUTextureFormat
+    } mipGen;
+    void generateMips(QWebGPUTexture *texD);
+    void releaseMipGen();
 };
 
 QT_END_NAMESPACE

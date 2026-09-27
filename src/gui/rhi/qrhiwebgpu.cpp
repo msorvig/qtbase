@@ -369,7 +369,7 @@ bool QWebGPUTexture::create()
     if (m_flags.testFlag(RenderTarget) || samples > 1)
         desc.usage |= WGPUTextureUsage_RenderAttachment;
     if (m_flags.testFlag(UsedWithGenerateMips))
-        desc.usage |= WGPUTextureUsage_CopySrc;
+        desc.usage |= WGPUTextureUsage_CopySrc | WGPUTextureUsage_RenderAttachment;
     if (m_flags.testFlag(UsedAsTransferSource))
         desc.usage |= WGPUTextureUsage_CopySrc;
     if (m_flags.testFlag(UsedWithLoadStore))
@@ -2387,6 +2387,7 @@ void QRhiWebGPU::destroy()
 
     executeDeferredReleases(true);
     finishActiveReadbacks(true);
+    releaseMipGen();
 
     if (!importedDevice) {
         if (device) {
@@ -2816,6 +2817,163 @@ void QRhiWebGPU::resourceUpdate(QRhiCommandBuffer *cb, QRhiResourceUpdateBatch *
     enqueueResourceUpdates(cb, resourceUpdates);
 }
 
+static const char mipGenWgsl[] = R"(
+struct VOut {
+    @builtin(position) pos: vec4f,
+    @location(0) uv: vec2f,
+};
+@vertex fn vs(@builtin(vertex_index) i: u32) -> VOut {
+    // One triangle covering the target; uv (0,0) is the top-left corner.
+    let uv = vec2f(f32((i << 1u) & 2u), f32(i & 2u));
+    var o: VOut;
+    o.pos = vec4f(uv * vec2f(2.0, -2.0) + vec2f(-1.0, 1.0), 0.0, 1.0);
+    o.uv = uv;
+    return o;
+}
+@group(0) @binding(0) var s: sampler;
+@group(0) @binding(1) var t: texture_2d<f32>;
+@fragment fn fs(v: VOut) -> @location(0) vec4f {
+    return textureSample(t, s, v.uv);
+}
+)";
+
+void QRhiWebGPU::generateMips(QWebGPUTexture *texD)
+{
+    if (!texD || !texD->texture || texD->mipLevelCount <= 1)
+        return;
+    if (texD->m_flags.testFlag(QRhiTexture::ThreeDimensional)) {
+        qWarning("QRhiWebGPU: generateMips() is not supported for 3D textures");
+        return;
+    }
+
+    if (!mipGen.module) {
+        WGPUShaderSourceWGSL wgslSource = WGPU_SHADER_SOURCE_WGSL_INIT;
+        wgslSource.code = { mipGenWgsl, sizeof(mipGenWgsl) - 1 };
+        WGPUShaderModuleDescriptor moduleDesc = WGPU_SHADER_MODULE_DESCRIPTOR_INIT;
+        moduleDesc.nextInChain = &wgslSource.chain;
+        mipGen.module = wgpuDeviceCreateShaderModule(device, &moduleDesc);
+
+        WGPUSamplerDescriptor samplerDesc = WGPU_SAMPLER_DESCRIPTOR_INIT;
+        samplerDesc.magFilter = WGPUFilterMode_Linear;
+        samplerDesc.minFilter = WGPUFilterMode_Linear;
+        mipGen.sampler = wgpuDeviceCreateSampler(device, &samplerDesc);
+
+        WGPUBindGroupLayoutEntry entries[2] = { WGPU_BIND_GROUP_LAYOUT_ENTRY_INIT,
+                                                WGPU_BIND_GROUP_LAYOUT_ENTRY_INIT };
+        entries[0].binding = 0;
+        entries[0].visibility = WGPUShaderStage_Fragment;
+        entries[0].sampler.type = WGPUSamplerBindingType_Filtering;
+        entries[1].binding = 1;
+        entries[1].visibility = WGPUShaderStage_Fragment;
+        entries[1].texture.sampleType = WGPUTextureSampleType_Float;
+        entries[1].texture.viewDimension = WGPUTextureViewDimension_2D;
+        WGPUBindGroupLayoutDescriptor bglDesc = WGPU_BIND_GROUP_LAYOUT_DESCRIPTOR_INIT;
+        bglDesc.entryCount = 2;
+        bglDesc.entries = entries;
+        mipGen.bindGroupLayout = wgpuDeviceCreateBindGroupLayout(device, &bglDesc);
+
+        WGPUPipelineLayoutDescriptor plDesc = WGPU_PIPELINE_LAYOUT_DESCRIPTOR_INIT;
+        plDesc.bindGroupLayoutCount = 1;
+        plDesc.bindGroupLayouts = &mipGen.bindGroupLayout;
+        mipGen.pipelineLayout = wgpuDeviceCreatePipelineLayout(device, &plDesc);
+    }
+
+    WGPURenderPipeline pipeline = mipGen.pipelines.value(int(texD->wgpuFormat));
+    if (!pipeline) {
+        WGPUColorTargetState target = WGPU_COLOR_TARGET_STATE_INIT;
+        target.format = texD->wgpuFormat;
+        WGPUFragmentState fragment = WGPU_FRAGMENT_STATE_INIT;
+        fragment.module = mipGen.module;
+        fragment.entryPoint = { "fs", WGPU_STRLEN };
+        fragment.targetCount = 1;
+        fragment.targets = &target;
+        WGPURenderPipelineDescriptor desc = WGPU_RENDER_PIPELINE_DESCRIPTOR_INIT;
+        desc.layout = mipGen.pipelineLayout;
+        desc.vertex.module = mipGen.module;
+        desc.vertex.entryPoint = { "vs", WGPU_STRLEN };
+        desc.fragment = &fragment;
+        pipeline = wgpuDeviceCreateRenderPipeline(device, &desc);
+        mipGen.pipelines.insert(int(texD->wgpuFormat), pipeline);
+    }
+
+    int layerCount = 1;
+    if (texD->m_flags.testFlag(QRhiTexture::CubeMap))
+        layerCount = 6;
+    else if (texD->m_arraySize > 0)
+        layerCount = texD->m_arraySize;
+
+    WGPUCommandEncoder enc = wgpuDeviceCreateCommandEncoder(device, nullptr);
+    QVarLengthArray<WGPUTextureView, 16> views;
+    QVarLengthArray<WGPUBindGroup, 16> bindGroups;
+    for (int layer = 0; layer < layerCount; ++layer) {
+        for (int level = 1; level < texD->mipLevelCount; ++level) {
+            WGPUTextureViewDescriptor viewDesc = WGPU_TEXTURE_VIEW_DESCRIPTOR_INIT;
+            viewDesc.format = texD->wgpuFormat;
+            viewDesc.dimension = WGPUTextureViewDimension_2D;
+            viewDesc.baseArrayLayer = uint32_t(layer);
+            viewDesc.arrayLayerCount = 1;
+            viewDesc.mipLevelCount = 1;
+            viewDesc.baseMipLevel = uint32_t(level - 1);
+            WGPUTextureView srcView = wgpuTextureCreateView(texD->texture, &viewDesc);
+            viewDesc.baseMipLevel = uint32_t(level);
+            WGPUTextureView dstView = wgpuTextureCreateView(texD->texture, &viewDesc);
+            views.append(srcView);
+            views.append(dstView);
+
+            WGPUBindGroupEntry bgEntries[2] = { WGPU_BIND_GROUP_ENTRY_INIT, WGPU_BIND_GROUP_ENTRY_INIT };
+            bgEntries[0].binding = 0;
+            bgEntries[0].sampler = mipGen.sampler;
+            bgEntries[1].binding = 1;
+            bgEntries[1].textureView = srcView;
+            WGPUBindGroupDescriptor bgDesc = WGPU_BIND_GROUP_DESCRIPTOR_INIT;
+            bgDesc.layout = mipGen.bindGroupLayout;
+            bgDesc.entryCount = 2;
+            bgDesc.entries = bgEntries;
+            WGPUBindGroup bindGroup = wgpuDeviceCreateBindGroup(device, &bgDesc);
+            bindGroups.append(bindGroup);
+
+            WGPURenderPassColorAttachment att = WGPU_RENDER_PASS_COLOR_ATTACHMENT_INIT;
+            att.view = dstView;
+            att.loadOp = WGPULoadOp_Clear;
+            att.storeOp = WGPUStoreOp_Store;
+            WGPURenderPassDescriptor passDesc = WGPU_RENDER_PASS_DESCRIPTOR_INIT;
+            passDesc.colorAttachmentCount = 1;
+            passDesc.colorAttachments = &att;
+            WGPURenderPassEncoder pass = wgpuCommandEncoderBeginRenderPass(enc, &passDesc);
+            wgpuRenderPassEncoderSetPipeline(pass, pipeline);
+            wgpuRenderPassEncoderSetBindGroup(pass, 0, bindGroup, 0, nullptr);
+            wgpuRenderPassEncoderDraw(pass, 3, 1, 0, 0);
+            wgpuRenderPassEncoderEnd(pass);
+            wgpuRenderPassEncoderRelease(pass);
+        }
+    }
+    // Submitted right away, like copies: ordered after earlier uploads.
+    WGPUCommandBuffer cmdBuf = wgpuCommandEncoderFinish(enc, nullptr);
+    wgpuQueueSubmit(queue, 1, &cmdBuf);
+    wgpuCommandBufferRelease(cmdBuf);
+    wgpuCommandEncoderRelease(enc);
+    for (WGPUBindGroup bg : std::as_const(bindGroups))
+        wgpuBindGroupRelease(bg);
+    for (WGPUTextureView v : std::as_const(views))
+        wgpuTextureViewRelease(v);
+}
+
+void QRhiWebGPU::releaseMipGen()
+{
+    for (WGPURenderPipeline p : std::as_const(mipGen.pipelines))
+        wgpuRenderPipelineRelease(p);
+    mipGen.pipelines.clear();
+    if (mipGen.pipelineLayout)
+        wgpuPipelineLayoutRelease(mipGen.pipelineLayout);
+    if (mipGen.bindGroupLayout)
+        wgpuBindGroupLayoutRelease(mipGen.bindGroupLayout);
+    if (mipGen.sampler)
+        wgpuSamplerRelease(mipGen.sampler);
+    if (mipGen.module)
+        wgpuShaderModuleRelease(mipGen.module);
+    mipGen = {};
+}
+
 void QRhiWebGPU::enqueueResourceUpdates(QRhiCommandBuffer *cb, QRhiResourceUpdateBatch *resourceUpdates)
 {
     Q_UNUSED(cb);
@@ -3005,6 +3163,8 @@ void QRhiWebGPU::enqueueResourceUpdates(QRhiCommandBuffer *cb, QRhiResourceUpdat
             wgpuCommandBufferRelease(cmdBuf);
             wgpuCommandEncoderRelease(enc);
 
+        } else if (u.type == QRhiResourceUpdateBatchPrivate::TextureOp::GenMips) {
+            generateMips(QRHI_RES(QWebGPUTexture, u.dst));
         } else if (u.type == QRhiResourceUpdateBatchPrivate::TextureOp::Read) {
             TextureReadback readback;
             readback.desc = u.rb;
