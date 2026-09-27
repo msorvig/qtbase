@@ -41,6 +41,10 @@ quint64 tst_qrhi_createMetalRasterizationRateMap(void *device, const QSize &scre
 void tst_qrhi_releaseMetalObject(quint64 object);
 #endif
 
+#if QT_CONFIG(webgpu)
+# define TST_WEBGPU
+#endif
+
 Q_DECLARE_METATYPE(QRhi::Implementation)
 Q_DECLARE_METATYPE(QRhiInitParams *)
 
@@ -312,6 +316,9 @@ private:
 #ifdef TST_MTL
         QRhiMetalInitParams mtl;
 #endif
+#ifdef TST_WEBGPU
+        QRhiWebGPUInitParams webgpu;
+#endif
     } initParams;
 
 #ifdef TST_VK
@@ -395,6 +402,9 @@ void tst_QRhi::rhiTestData()
 #ifdef TST_MTL
     QTest::newRow("Metal") << QRhi::Metal << static_cast<QRhiInitParams *>(&initParams.mtl);
 #endif
+#ifdef TST_WEBGPU
+    QTest::newRow("WebGPU") << QRhi::WebGPU << static_cast<QRhiInitParams *>(&initParams.webgpu);
+#endif
 }
 
 template<typename T, std::size_t E, typename ParamStringifier>
@@ -442,6 +452,12 @@ void tst_QRhi::rhiTestDataWithParam(const char *paramName, QSpan<T, E> paramValu
     for (auto &paramValue : paramValues) {
         QTest::newRow(qPrintable(QStringLiteral("Metal-") + paramStringifier(paramValue)))
             << QRhi::Metal << static_cast<QRhiInitParams *>(&initParams.mtl) << paramValue;
+    }
+#endif
+#ifdef TST_WEBGPU
+    for (auto &paramValue : paramValues) {
+        QTest::newRow(qPrintable(QStringLiteral("WebGPU-") + paramStringifier(paramValue)))
+            << QRhi::WebGPU << static_cast<QRhiInitParams *>(&initParams.webgpu) << paramValue;
     }
 #endif
 }
@@ -889,6 +905,15 @@ void tst_QRhi::nativeHandles()
         }
             break;
 #endif
+#ifdef TST_WEBGPU
+        case QRhi::WebGPU:
+        {
+            const QRhiWebGPUNativeHandles *wgpuHandles = static_cast<const QRhiWebGPUNativeHandles *>(rhiHandles);
+            QVERIFY(wgpuHandles->device);
+            QVERIFY(wgpuHandles->queue);
+        }
+            break;
+#endif
         default:
             Q_ASSERT(false);
         }
@@ -949,6 +974,10 @@ void tst_QRhi::nativeHandles()
         }
             break;
 #endif
+#ifdef TST_WEBGPU
+        case QRhi::WebGPU:
+            break;
+#endif
         default:
             Q_ASSERT(false);
         }
@@ -993,6 +1022,10 @@ void tst_QRhi::nativeHandles()
 #endif
 #ifdef TST_MTL
         case QRhi::Metal:
+            break;
+#endif
+#ifdef TST_WEBGPU
+        case QRhi::WebGPU:
             break;
 #endif
         default:
@@ -1188,6 +1221,14 @@ void tst_QRhi::nativeTexture()
     }
         break;
 #endif
+#ifdef TST_WEBGPU
+    case QRhi::WebGPU:
+    {
+        auto texture = (void *)nativeTex.object;
+        QVERIFY(texture);
+    }
+        break;
+#endif
     default:
         Q_ASSERT(false);
     }
@@ -1273,6 +1314,18 @@ void tst_QRhi::nativeBuffer()
             QCOMPARE_GE(nativeBuf.slotCount, 1); // always backed by native buffers
             for (int i = 0; i < nativeBuf.slotCount; ++i) {
                 void * const * buffer = (void * const *) nativeBuf.objects[i];
+                QVERIFY(buffer);
+                QVERIFY(*buffer);
+            }
+        }
+            break;
+    #endif
+    #ifdef TST_WEBGPU
+        case QRhi::WebGPU:
+        {
+            QCOMPARE_GE(nativeBuf.slotCount, 1); // always backed by native buffers
+            for (int i = 0; i < nativeBuf.slotCount; ++i) {
+                auto *buffer = static_cast<void * const *>(nativeBuf.objects[i]);
                 QVERIFY(buffer);
                 QVERIFY(*buffer);
             }
@@ -3668,6 +3721,9 @@ void tst_QRhi::renderToTextureArrayOfTexturedQuad()
     if (!rhi)
         QSKIP("QRhi could not be created, skipping testing rendering");
 
+    if (impl == QRhi::WebGPU)
+        QSKIP("Arrays of textures/samplers are not supported in WGSL, skipping test");
+
     if (impl == QRhi::OpenGLES2 && isAndroidSwiftShader(rhi.get()))
         QSKIP("SwiftShader does not support this OpenGLES feature (QTBUG-132934)");
 
@@ -3813,6 +3869,9 @@ void tst_QRhi::renderToTextureArrayOfSampledTextures()
     QScopedPointer<QRhi> rhi(QRhi::create(impl, initParams, QRhi::Flags(), nullptr));
     if (!rhi)
         QSKIP("QRhi could not be created, skipping testing rendering");
+
+    if (impl == QRhi::WebGPU)
+        QSKIP("Arrays of textures/samplers are not supported in WGSL, skipping test");
 
     if (impl == QRhi::OpenGLES2 && isAndroidSwiftShader(rhi.get()))
         QSKIP("SwiftShader does not support this OpenGLES feature (QTBUG-132934)");
@@ -4964,6 +5023,18 @@ void tst_QRhi::setWindowType(QWindow *window, QRhi::Implementation impl)
         window->setVulkanInstance(&vulkanInstance);
         break;
 #endif
+    case QRhi::WebGPU:
+        // Dawn creates its surface from a CAMetalLayer on Apple platforms
+        // and from the HWND on Windows. On wasm a RasterSurface canvas gets a
+        // 2D context, which rules out a WebGPU context on it.
+#if defined(Q_OS_APPLE)
+        window->setSurfaceType(QSurface::MetalSurface);
+#elif defined(Q_OS_WIN)
+        window->setSurfaceType(QSurface::Direct3DSurface);
+#else
+        window->setSurfaceType(QSurface::OpenGLSurface);
+#endif
+        break;
     default:
         break;
     }
@@ -5445,6 +5516,9 @@ void tst_QRhi::renderToTextureAllUniformTypes()
     QRhi *rhi = sharedRhi(impl, initParams);
     if (!rhi)
         QSKIP("QRhi could not be created, skipping testing rendering");
+
+    if (impl == QRhi::WebGPU)
+        QSKIP("uniformtypes.frag has no WGSL (Tint: arrays of matrices with a custom stride), skipping test");
 
     // Sets *result to 0 when all uniforms had the expected value, or to the
     // 1-based index of the first failing check in the shader. Left untouched
@@ -11967,7 +12041,10 @@ void tst_QRhi::textureFormats()
     if (!rhi->isTextureFormatSupported(textureFormat))
         QSKIP("Texture format not supported on this backend");
 
-    std::unique_ptr<QRhiTexture> tex(rhi->newTexture(textureFormat, QSize(512, 512), 1));
+    // WebGPU requires compressed texture sizes to be a multiple of the block
+    // size; 480 is a multiple of every BC, ETC2 and ASTC block dimension.
+    const QSize size = impl == QRhi::WebGPU ? QSize(480, 480) : QSize(512, 512);
+    std::unique_ptr<QRhiTexture> tex(rhi->newTexture(textureFormat, size, 1));
     QVERIFY(tex->create());
 }
 
