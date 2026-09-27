@@ -488,10 +488,7 @@ void QWasmWindow::setGeometry(const QRect &rect)
     m_window["style"].set("width", std::to_string(clientAreaRect.width()) + "px");
     m_window["style"].set("height", std::to_string(clientAreaRect.height()) + "px");
 
-    QSizeF canvasSize = clientAreaRect.size() * devicePixelRatio();
-
-    m_canvas.set("width", canvasSize.width());
-    m_canvas.set("height", canvasSize.height());
+    updateCanvasSize(clientAreaRect.size());
 
     bool shouldInvalidate = true;
     if (!m_state.testFlag(Qt::WindowFullScreen) && !m_state.testFlag(Qt::WindowMaximized)) {
@@ -1121,6 +1118,23 @@ QRect QWasmWindow::normalGeometry() const
 qreal QWasmWindow::devicePixelRatio() const
 {
     return screen()->devicePixelRatio();
+}
+
+void QWasmWindow::updateCanvasSize()
+{
+    updateCanvasSize(geometry().size());
+}
+
+// Sizes the canvas backing store to the client area in device pixels. This must
+// agree with QRhiSwapChain::surfacePixelSize(), which rounds size * dpr.
+void QWasmWindow::updateCanvasSize(const QSize &clientAreaSize)
+{
+    const QSize canvasSize = clientAreaSize * devicePixelRatio();
+    // Setting width or height clears the canvas, even if the value is unchanged
+    if (m_canvas["width"].as<int>() != canvasSize.width())
+        m_canvas.set("width", canvasSize.width());
+    if (m_canvas["height"].as<int>() != canvasSize.height())
+        m_canvas.set("height", canvasSize.height());
 }
 
 void QWasmWindow::requestUpdate()
