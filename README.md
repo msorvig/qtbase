@@ -25,3 +25,18 @@ Branches: `dev-wasm-dynlnk`
 - tests: fix building with wasm shared-library config
 
 Companion patches live in qtdeclarative on the branch of the same name.
+
+wasm-webgpu
+-----------
+
+A WebGPU backend for the Qt RHI, on top of Dawn for native builds and
+emdawnwebgpu for WebAssembly builds.
+
+Branches: `dev-wasm-webgpu`
+
+- Add a WebGPU RHI backend
+- Add WebGPU shader variants to prebuilt shaders
+- tests/manual/rhi: rebuild shaders with WGSL variants
+
+Companion patches live in qtdeclarative, qtshadertools and qtquick3d on the
+branch of the same name.

@@ -46,6 +46,9 @@ if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
     set_source_files_properties(../3rdparty/md4c/md4c.c PROPERTIES COMPILE_FLAGS "-Wno-unused-parameter -Wno-sign-compare -Wno-missing-field-initializers")
 elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang" OR "${CMAKE_CXX_COMPILER_ID}" STREQUAL "AppleClang")
     set_source_files_properties(../3rdparty/md4c/md4c.c PROPERTIES COMPILE_FLAGS "-Wno-unused-parameter -Wno-sign-compare -Wno-missing-field-initializers -Wno-missing-braces")
+    # Silence -Wpadded warnings in WebGPU RHI backend
+    set_source_files_properties(rhi/qrhi.cpp rhi/qrhiwebgpu.cpp
+        PROPERTIES COMPILE_FLAGS "-Wno-padded")
 endif()
 
 # Silence AUTOMOC warning 'No relevant classes found. No output generated.'
@@ -1175,6 +1178,54 @@ qt_internal_extend_target(Gui CONDITION QT_FEATURE_metal
     PUBLIC_LIBRARIES
         ${FWMetal}
 )
+
+# WebGPU: Determine if WebGPU backend can be compiled
+# - WASM: uses emdawnwebgpu port (--use-port=emdawnwebgpu)
+# - Native: requires Dawn (DAWN_NATIVE_LIBRARY must be set)
+set(QT_WEBGPU_BACKEND_AVAILABLE OFF)
+if(QT_FEATURE_webgpu)
+    if(WASM)
+        set(QT_WEBGPU_BACKEND_AVAILABLE ON)
+    elseif(DAWN_NATIVE_LIBRARY)
+        set(QT_WEBGPU_BACKEND_AVAILABLE ON)
+    else()
+        message(STATUS "WebGPU: Native build requires Dawn (set DAWN_NATIVE_LIBRARY). WebGPU backend disabled.")
+    endif()
+endif()
+
+# WebGPU: Add source files and compile the backend if available
+if(QT_WEBGPU_BACKEND_AVAILABLE)
+    qt_internal_extend_target(Gui
+        SOURCES
+            rhi/qrhiwebgpu.cpp rhi/qrhiwebgpu_p.h
+        DEFINES
+            QT_WEBGPU_BACKEND_AVAILABLE
+    )
+
+    if(WASM)
+        # WASM: use emdawnwebgpu Emscripten port
+        # The port provides webgpu/webgpu.h header and links the WebGPU implementation
+        # PUBLIC so that consumers of Gui also get the port linked
+        target_compile_options(Gui PUBLIC "--use-port=emdawnwebgpu")
+        target_link_options(Gui PUBLIC "--use-port=emdawnwebgpu")
+    else()
+        # Native: use Dawn
+        qt_internal_extend_target(Gui
+            LIBRARIES
+                ${DAWN_NATIVE_LIBRARY}
+            INCLUDE_DIRECTORIES
+                ${DAWN_INCLUDE_DIR}
+        )
+        if(APPLE)
+            # Dawn requires additional Apple frameworks
+            qt_internal_extend_target(Gui
+                LIBRARIES
+                    "-framework IOSurface"
+                    "-framework CoreVideo"
+            )
+        endif()
+    endif()
+endif()
 
 qt_internal_extend_target(Gui
     SOURCES
