@@ -3,6 +3,7 @@
 
 #include "qrhiwebgpu_p.h"
 #include <qmath.h>
+#include <algorithm>
 #include <QLoggingCategory>
 
 #ifdef Q_OS_WASM
@@ -2000,16 +2001,37 @@ QSize QWebGPUSwapChain::surfacePixelSize()
     return QSize();
 }
 
+// HDR swapchain formats map to an rgba16float canvas on wasm, see isFormatSupported().
+static inline bool isCanvasHdrFormat(QRhiSwapChain::Format f)
+{
+#ifdef __EMSCRIPTEN__
+    return f == QRhiSwapChain::HDRExtendedSrgbLinear || f == QRhiSwapChain::HDRExtendedDisplayP3Linear;
+#else
+    Q_UNUSED(f);
+    return false;
+#endif
+}
+
 bool QWebGPUSwapChain::isFormatSupported(Format f)
 {
+#ifdef __EMSCRIPTEN__
+    // Browsers take an rgba16float canvas with "extended" tone mapping, in the
+    // srgb or display-p3 color space. Note the values are interpreted
+    // non-linearly (sRGB transfer function, extended beyond 1.0), unlike the
+    // linear scRGB / Display P3 that these formats mean on other backends.
+    // There is no PQ (HDR10) canvas configuration.
+    return f == SDR || f == HDRExtendedSrgbLinear || f == HDRExtendedDisplayP3Linear;
+#else
     return f == SDR;
+#endif
 }
 
 QRhiRenderPassDescriptor *QWebGPUSwapChain::newCompatibleRenderPassDescriptor()
 {
     QWebGPURenderPassDescriptor *rpD = new QWebGPURenderPassDescriptor(m_rhi);
     rpD->colorAttachmentCount = 1;
-    rpD->colorFormat[0] = surfaceFormat;
+    // Called before createOrResize(), so use the format it will configure.
+    rpD->colorFormat[0] = isCanvasHdrFormat(m_format) ? WGPUTextureFormat_RGBA16Float : surfaceFormat;
     rpD->hasDepthStencil = m_depthStencil != nullptr;
     if (rpD->hasDepthStencil)
         rpD->dsFormat = WGPUTextureFormat_Depth24PlusStencil8;
@@ -2116,6 +2138,16 @@ bool QWebGPUSwapChain::createOrResize()
     WGPUSurfaceCapabilities caps = WGPU_SURFACE_CAPABILITIES_INIT;
     wgpuSurfaceGetCapabilities(surface, rhiD->adapter, &caps);
     surfaceFormat = caps.formats[0];  // Use first (preferred) format
+#ifdef __EMSCRIPTEN__
+    if (isCanvasHdrFormat(m_format)) {
+        if (std::find(caps.formats, caps.formats + caps.formatCount, WGPUTextureFormat_RGBA16Float)
+                != caps.formats + caps.formatCount) {
+            surfaceFormat = WGPUTextureFormat_RGBA16Float;
+        } else {
+            qWarning("QRhiWebGPU: rgba16float canvas not supported, using SDR");
+        }
+    }
+#endif
     wgpuSurfaceCapabilitiesFreeMembers(caps);
     qCDebug(lcWebGPU, "QRhiWebGPU::createOrResize surfaceFormat=%d", surfaceFormat);
 
@@ -2127,6 +2159,17 @@ bool QWebGPUSwapChain::createOrResize()
     config.height = pixelSize.height();
     config.usage = WGPUTextureUsage_RenderAttachment | WGPUTextureUsage_CopySrc;
     config.presentMode = WGPUPresentMode_Fifo;
+#ifdef __EMSCRIPTEN__
+    WGPUSurfaceColorManagement colorManagement = WGPU_SURFACE_COLOR_MANAGEMENT_INIT;
+    if (surfaceFormat == WGPUTextureFormat_RGBA16Float) {
+        colorManagement.colorSpace = m_format == HDRExtendedDisplayP3Linear
+                ? WGPUPredefinedColorSpace_DisplayP3 : WGPUPredefinedColorSpace_SRGB;
+        colorManagement.toneMappingMode = WGPUToneMappingMode_Extended;
+        config.nextInChain = &colorManagement.chain;
+        qCDebug(lcWebGPU, "QWebGPUSwapChain: HDR canvas, rgba16float %s extended",
+                m_format == HDRExtendedDisplayP3Linear ? "display-p3" : "srgb");
+    }
+#endif
     wgpuSurfaceConfigure(surface, &config);
 
     qCDebug(lcWebGPU, "QWebGPUSwapChain::createOrResize() configured surface=%p format=%d size=%dx%d",
@@ -3223,9 +3266,12 @@ void QRhiWebGPU::enqueueResourceUpdates(QRhiCommandBuffer *cb, QRhiResourceUpdat
                     continue;
                 }
                 sourceTexture = currentSwapChain->currentTexture;
-                readback.format = (currentSwapChain->surfaceFormat == WGPUTextureFormat_BGRA8Unorm
-                                   || currentSwapChain->surfaceFormat == WGPUTextureFormat_BGRA8UnormSrgb)
-                                  ? QRhiTexture::BGRA8 : QRhiTexture::RGBA8;
+                if (currentSwapChain->surfaceFormat == WGPUTextureFormat_RGBA16Float)
+                    readback.format = QRhiTexture::RGBA16F;
+                else
+                    readback.format = (currentSwapChain->surfaceFormat == WGPUTextureFormat_BGRA8Unorm
+                                       || currentSwapChain->surfaceFormat == WGPUTextureFormat_BGRA8UnormSrgb)
+                                      ? QRhiTexture::BGRA8 : QRhiTexture::RGBA8;
                 subresSize = currentSwapChain->pixelSize;
             }
 
