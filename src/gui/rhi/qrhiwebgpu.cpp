@@ -2626,6 +2626,7 @@ bool QRhiWebGPU::isFeatureSupported(QRhi::Feature feature) const
     case QRhi::ScreenSpaceDerivatives:
     case QRhi::RenderToNonBaseMipLevel:
     case QRhi::ReadBackNonBaseMipLevel:
+    case QRhi::BufferToBufferCopy:
     case QRhi::ReadBackNonUniformBuffer:
     case QRhi::PerRenderTargetBlending:
         return true;
@@ -3167,6 +3168,24 @@ void QRhiWebGPU::enqueueResourceUpdates(QRhiCommandBuffer *cb, QRhiResourceUpdat
             wgpuCommandBufferRelease(cmdBuf);
             wgpuCommandEncoderRelease(enc);
             activeBufferReadbacks.append(readback);
+        } else if (u.type == QRhiResourceUpdateBatchPrivate::BufferOp::Copy) {
+            QWebGPUBuffer *dstD = QRHI_RES(QWebGPUBuffer, u.buf);
+            QWebGPUBuffer *srcD = QRHI_RES(QWebGPUBuffer, u.src);
+            if ((u.offset | u.srcOffset | u.readSize) & 3u) {
+                qWarning("QRhiWebGPU: buffer copy offsets and size must be multiples of 4 "
+                         "(source offset %u, destination offset %u, size %u)",
+                         u.srcOffset, u.offset, u.readSize);
+                continue;
+            }
+            // Keep the shadow copy, used for widening unaligned uploads, in sync.
+            memcpy(dstD->stagingData + u.offset, srcD->stagingData + u.srcOffset, u.readSize);
+            WGPUCommandEncoder enc = wgpuDeviceCreateCommandEncoder(device, nullptr);
+            wgpuCommandEncoderCopyBufferToBuffer(enc, srcD->buffer, u.srcOffset,
+                                                 dstD->buffer, u.offset, u.readSize);
+            WGPUCommandBuffer cmdBuf = wgpuCommandEncoderFinish(enc, nullptr);
+            wgpuQueueSubmit(queue, 1, &cmdBuf);
+            wgpuCommandBufferRelease(cmdBuf);
+            wgpuCommandEncoderRelease(enc);
         }
     }
 
