@@ -451,7 +451,7 @@ bool QNativeSocketEngine::initialize(QAbstractSocket::SocketType socketType, QAb
     }
 
 
-#ifndef Q_OS_WASM
+#if !defined(Q_OS_WASM) && !defined(Q_OS_WASI)
     // Make sure we receive out-of-band data
     if (socketType == QAbstractSocket::TcpSocket
         && !setOption(ReceiveOutOfBandData, 1)) {

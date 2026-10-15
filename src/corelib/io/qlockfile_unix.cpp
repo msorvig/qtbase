@@ -17,18 +17,20 @@
 #include "private/qfilesystementry_p.h"
 #include "private/quniquehandle_types_p.h"
 
-#if !defined(Q_OS_INTEGRITY)
+#if !defined(Q_OS_INTEGRITY) && !defined(Q_OS_WASI)
 #include <sys/file.h>  // flock
 #endif
 
-#if defined(Q_OS_RTEMS)
+#if defined(Q_OS_RTEMS) || defined(Q_OS_WASI)
 // flock() does not work in these OSes and produce warnings when we try to use
 #  undef LOCK_EX
 #  undef LOCK_NB
 #endif
 
 #include <sys/types.h> // kill
+#if !defined(Q_OS_WASI)
 #include <signal.h>    // kill
+#endif
 #include <unistd.h>    // gethostname
 
 #if defined(Q_OS_MACOS)
@@ -359,6 +361,11 @@ bool QLockFilePrivate::removeStaleLock()
 
 bool QLockFilePrivate::isProcessRunning(qint64 pid, const QString &appname)
 {
+#if defined(Q_OS_WASI)
+    Q_UNUSED(pid);
+    Q_UNUSED(appname);
+    return false; // WASI has no process management
+#else
     if (::kill(pid_t(pid), 0) == -1 && errno == ESRCH)
         return false; // PID doesn't exist anymore
 
@@ -372,6 +379,7 @@ bool QLockFilePrivate::isProcessRunning(qint64 pid, const QString &appname)
     }
 
     return true;
+#endif
 }
 
 QString QLockFilePrivate::processNameByPid(qint64 pid)

@@ -21,7 +21,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#if __has_include(<sys/eventfd.h>)
+#if __has_include(<sys/eventfd.h>) && !defined(Q_OS_WASI)
 #  include <sys/eventfd.h>
 static constexpr bool UsingEventfd = true;
 #else
@@ -97,7 +97,7 @@ static void initThreadPipeFD(int fd)
 
 bool QThreadPipe::init()
 {
-#if defined(Q_OS_WASM)
+#if defined(Q_OS_WASM) || defined(Q_OS_WASI)
     // do nothing.
 #elif defined(Q_OS_VXWORKS) && QT_CONFIG(vxpipedrv)
     RTP_DESC rtpStruct;

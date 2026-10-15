@@ -489,10 +489,10 @@ QCoreApplicationPrivate::QCoreApplicationPrivate(int &aargc, char **aargv)
 #ifndef QT_NO_QOBJECT
     QCoreApplicationPrivate::is_app_closing = false;
 
-#  if defined(Q_OS_UNIX)
+#  if defined(Q_OS_UNIX) && !defined(Q_OS_WASI)
     if (Q_UNLIKELY(!setuidAllowed && (geteuid() != getuid())))
         qFatal("FATAL: The application binary appears to be running setuid, this is a security hole.");
-#  endif // Q_OS_UNIX
+#  endif // Q_OS_UNIX && !Q_OS_WASI
 
     QThread *cur = QThread::currentThread(); // note: this may end up setting theMainThread!
     if (cur != theMainThread.loadAcquire())

@@ -38,7 +38,9 @@
 #include <qstylepainter.h>
 #include "ui_qfiledialog.h"
 #if defined(Q_OS_UNIX)
+#if !defined(Q_OS_WASI)
 #include <pwd.h>
+#endif
 #include <unistd.h> // for pathconf() on OS X
 #elif defined(Q_OS_WIN)
 #  include <QtCore/qt_windows.h>
@@ -1151,9 +1153,10 @@ void QFileDialog::selectUrl(const QUrl &url)
 }
 
 #ifdef Q_OS_UNIX
+#if !defined(Q_OS_WASI)
 static QString homeDirFromPasswdEntry(const QString &path, const QByteArray &userName)
 {
-#if defined(_POSIX_THREAD_SAFE_FUNCTIONS) && !defined(Q_OS_OPENBSD) && !defined(Q_OS_WASM)
+#if defined(_POSIX_THREAD_SAFE_FUNCTIONS) && !defined(Q_OS_OPENBSD) && !defined(Q_OS_WASM) && !defined(Q_OS_WASI)
     passwd pw;
     passwd *tmpPw;
     long bufSize = ::sysconf(_SC_GETPW_R_SIZE_MAX);
@@ -1174,8 +1177,9 @@ static QString homeDirFromPasswdEntry(const QString &path, const QByteArray &use
     if (!pw)
         return path;
     return QFile::decodeName(pw->pw_dir);
-#endif // defined(_POSIX_THREAD_SAFE_FUNCTIONS) && !defined(Q_OS_OPENBSD) && !defined(Q_OS_WASM)
+#endif // defined(_POSIX_THREAD_SAFE_FUNCTIONS) && !defined(Q_OS_OPENBSD) && !defined(Q_OS_WASM) && !defined(Q_OS_WASI)
 }
+#endif // !defined(Q_OS_WASI)
 
 Q_AUTOTEST_EXPORT QString qt_tildeExpansion(const QString &path)
 {
@@ -1190,7 +1194,7 @@ Q_AUTOTEST_EXPORT QString qt_tildeExpansion(const QString &path)
     if (sepIndex == 1) // '~/' or '~/a/b/c'
         return QDir::homePath() + sv.sliced(1);
 
-#if defined(Q_OS_VXWORKS) || defined(Q_OS_INTEGRITY)
+#if defined(Q_OS_VXWORKS) || defined(Q_OS_INTEGRITY) || defined(Q_OS_WASI)
     if (sepIndex == -1)
         return QDir::homePath();
     return QDir::homePath() + sv.sliced(sepIndex);

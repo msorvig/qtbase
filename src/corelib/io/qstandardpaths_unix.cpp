@@ -14,6 +14,10 @@
 #include <private/qfilesystemengine_p.h>
 #include <errno.h>
 #include <stdlib.h>
+#if defined(Q_OS_WASI)
+// WASI lacks user identity
+static uid_t geteuid() { return 0; }
+#endif
 
 #ifndef QT_BOOTSTRAPPED
 #include <qcoreapplication.h>
@@ -269,7 +273,7 @@ QString QStandardPaths::writableLocation(StandardLocation type)
             xdgRuntimeDir = QDir::tempPath() + "/runtime-"_L1 + userName;
 
             if (!fromEnv) {
-#ifndef Q_OS_WASM
+#if !defined(Q_OS_WASM) && !defined(Q_OS_WASI)
                 qWarning("QStandardPaths: XDG_RUNTIME_DIR not set, defaulting to '%ls'", qUtf16Printable(xdgRuntimeDir));
 #endif
             }
