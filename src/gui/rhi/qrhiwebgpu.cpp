@@ -296,7 +296,9 @@ void QWebGPUTexture::destroy()
 bool QWebGPUTexture::prepareCreate(QSize *adjustedSize)
 {
     QRHI_RES_RHI(QRhiWebGPU);
-    const QSize size = m_pixelSize.isEmpty() ? QSize(1, 1) : m_pixelSize;
+    const bool is1D = m_flags.testFlag(OneDimensional);
+    const QSize size = is1D ? QSize(qMax(1, m_pixelSize.width()), 1)
+                            : (m_pixelSize.isEmpty() ? QSize(1, 1) : m_pixelSize);
 
     if (adjustedSize)
         *adjustedSize = size;
@@ -316,12 +318,16 @@ bool QWebGPUTexture::prepareCreate(QSize *adjustedSize)
         : wgpuFormat;
 
     const bool hasMipMaps = m_flags.testFlag(MipMapped);
-    mipLevelCount = hasMipMaps ? rhiD->q->mipLevelsForSize(size) : 1;
+    // WebGPU 1D textures cannot have mip levels (OneDimensionalTextureMipmaps
+    // is not reported).
+    if (hasMipMaps && is1D)
+        qWarning("QRhiWebGPU: 1D textures cannot be mipmapped, creating a single mip level");
+    mipLevelCount = hasMipMaps && !is1D ? rhiD->q->mipLevelsForSize(size) : 1;
 
     // WebGPU requires multisampled textures to have exactly 1 mip level
     // and only 2D textures can be multisampled (not 3D, not 1D)
     const bool is3D = m_flags.testFlag(ThreeDimensional);
-    if (mipLevelCount > 1 || is3D)
+    if (mipLevelCount > 1 || is3D || is1D)
         samples = 1;
     else
         samples = rhiD->effectiveSampleCount(m_sampleCount);
@@ -359,9 +365,14 @@ bool QWebGPUTexture::create()
 
     const bool is3D = m_flags.testFlag(ThreeDimensional);
     const bool isCube = m_flags.testFlag(CubeMap);
+    // WebGPU has no 1D array textures: 1D arrays are 2D arrays of height 1.
+    // Uploads, copies and readbacks work, but shaders cannot sample them,
+    // since WGSL has no texture_1d_array (sampler1DArray does not translate).
+    const bool is1D = m_flags.testFlag(OneDimensional) && m_arraySize <= 0;
 
     WGPUTextureDescriptor desc = WGPU_TEXTURE_DESCRIPTOR_INIT;
-    desc.dimension = is3D ? WGPUTextureDimension_3D : WGPUTextureDimension_2D;
+    desc.dimension = is3D ? WGPUTextureDimension_3D
+                          : (is1D ? WGPUTextureDimension_1D : WGPUTextureDimension_2D);
     desc.size.width = uint32_t(size.width());
     desc.size.height = uint32_t(size.height());
     // Cubemaps always have 6 faces (array layers)
@@ -385,6 +396,11 @@ bool QWebGPUTexture::create()
         desc.usage |= WGPUTextureUsage_CopySrc;
     if (m_flags.testFlag(UsedWithLoadStore))
         desc.usage |= WGPUTextureUsage_StorageBinding;
+    if (is1D && (desc.usage & WGPUTextureUsage_RenderAttachment)) {
+        // RenderToOneDimensionalTexture is not reported.
+        qWarning("QRhiWebGPU: 1D textures cannot be rendered to");
+        desc.usage &= ~WGPUTextureUsage_RenderAttachment;
+    }
 
     QVarLengthArray<WGPUTextureFormat, 2> viewFormats;
     if (wgpuReadViewFormat != wgpuFormat)
@@ -1215,6 +1231,8 @@ bool QWebGPUShaderResourceBindings::createWithBindingMap(const QShader::NativeRe
                     viewDim = WGPUTextureViewDimension_2DArray;
                 else if (texD->flags().testFlag(QRhiTexture::ThreeDimensional))
                     viewDim = WGPUTextureViewDimension_3D;
+                else if (texD->flags().testFlag(QRhiTexture::OneDimensional))
+                    viewDim = WGPUTextureViewDimension_1D;
                 WGPUBindGroupLayoutEntry texLayoutEntry = WGPU_BIND_GROUP_LAYOUT_ENTRY_INIT;
                 texLayoutEntry.binding = uint32_t(textureBinding);
                 texLayoutEntry.visibility = toWgpuShaderStage(b->stage);
@@ -2660,6 +2678,7 @@ bool QRhiWebGPU::isFeatureSupported(QRhi::Feature feature) const
     case QRhi::HalfAttributes:
     case QRhi::TextureViewFormat:
     case QRhi::TextureArrayRange:
+    case QRhi::OneDimensionalTextures:
         return true;
     case QRhi::Timestamps:
         return caps.hasTimestampQuery;
