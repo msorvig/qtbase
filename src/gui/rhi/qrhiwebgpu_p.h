@@ -76,6 +76,8 @@ struct QWebGPUTexture : public QRhiTexture
     WGPUTexture texture = nullptr;
     WGPUTextureView textureView = nullptr;
     WGPUTextureFormat wgpuFormat = WGPUTextureFormat_Undefined;
+    WGPUTextureFormat wgpuReadViewFormat = WGPUTextureFormat_Undefined; // sampling
+    WGPUTextureFormat wgpuWriteViewFormat = WGPUTextureFormat_Undefined; // attachments, storage
     int mipLevelCount = 0;
     int samples = 1;
     bool imported = false;

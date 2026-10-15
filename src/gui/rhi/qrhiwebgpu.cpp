@@ -306,6 +306,14 @@ bool QWebGPUTexture::prepareCreate(QSize *adjustedSize)
         qWarning("Unsupported texture format %d", int(m_format));
         return false;
     }
+    // WebGPU allows views that differ only in being sRGB or not, provided
+    // the formats are listed in the texture's viewFormats.
+    wgpuReadViewFormat = m_readViewFormat.format != UnknownFormat
+        ? QRhiWebGPU::toWgpuTextureFormat(m_readViewFormat.format, m_readViewFormat.srgb ? sRGB : Flags())
+        : wgpuFormat;
+    wgpuWriteViewFormat = m_writeViewFormat.format != UnknownFormat
+        ? QRhiWebGPU::toWgpuTextureFormat(m_writeViewFormat.format, m_writeViewFormat.srgb ? sRGB : Flags())
+        : wgpuFormat;
 
     const bool hasMipMaps = m_flags.testFlag(MipMapped);
     mipLevelCount = hasMipMaps ? rhiD->q->mipLevelsForSize(size) : 1;
@@ -378,6 +386,14 @@ bool QWebGPUTexture::create()
     if (m_flags.testFlag(UsedWithLoadStore))
         desc.usage |= WGPUTextureUsage_StorageBinding;
 
+    QVarLengthArray<WGPUTextureFormat, 2> viewFormats;
+    if (wgpuReadViewFormat != wgpuFormat)
+        viewFormats.append(wgpuReadViewFormat);
+    if (wgpuWriteViewFormat != wgpuFormat && wgpuWriteViewFormat != wgpuReadViewFormat)
+        viewFormats.append(wgpuWriteViewFormat);
+    desc.viewFormatCount = size_t(viewFormats.size());
+    desc.viewFormats = viewFormats.constData();
+
     texture = wgpuDeviceCreateTexture(rhiD->device, &desc);
     if (!texture) {
         qWarning("Failed to create WebGPU texture");
@@ -391,7 +407,7 @@ bool QWebGPUTexture::create()
 
     if (isCube || isArray || is3D) {
         WGPUTextureViewDescriptor viewDesc = WGPU_TEXTURE_VIEW_DESCRIPTOR_INIT;
-        viewDesc.format = wgpuFormat;
+        viewDesc.format = wgpuReadViewFormat;
         viewDesc.mipLevelCount = uint32_t(mipLevelCount);
         viewDesc.baseArrayLayer = 0;
         if (isCube) {
@@ -406,7 +422,9 @@ bool QWebGPUTexture::create()
         }
         textureView = wgpuTextureCreateView(texture, &viewDesc);
     } else {
-        textureView = wgpuTextureCreateView(texture, nullptr);
+        WGPUTextureViewDescriptor viewDesc = WGPU_TEXTURE_VIEW_DESCRIPTOR_INIT;
+        viewDesc.format = wgpuReadViewFormat;
+        textureView = wgpuTextureCreateView(texture, &viewDesc);
     }
 
     if (!textureView) {
@@ -803,7 +821,7 @@ QRhiRenderPassDescriptor *QWebGPUTextureRenderTarget::newCompatibleRenderPassDes
         WGPUTextureFormat fmt;
         if (it->texture()) {
             QWebGPUTexture *texD = QRHI_RES(QWebGPUTexture, it->texture());
-            fmt = texD->wgpuFormat;
+            fmt = texD->wgpuWriteViewFormat;
         } else if (it->renderBuffer()) {
             QWebGPURenderBuffer *rbD = QRHI_RES(QWebGPURenderBuffer, it->renderBuffer());
             fmt = QRhiWebGPU::toWgpuTextureFormat(rbD->backingFormat(), {});
@@ -816,7 +834,7 @@ QRhiRenderPassDescriptor *QWebGPUTextureRenderTarget::newCompatibleRenderPassDes
     if (rpD->hasDepthStencil) {
         if (m_desc.depthTexture()) {
             QWebGPUTexture *depthTexD = QRHI_RES(QWebGPUTexture, m_desc.depthTexture());
-            rpD->dsFormat = depthTexD->wgpuFormat;
+            rpD->dsFormat = depthTexD->wgpuWriteViewFormat;
         } else {
             rpD->dsFormat = WGPUTextureFormat_Depth24PlusStencil8;
         }
@@ -830,12 +848,14 @@ QRhiRenderPassDescriptor *QWebGPUTextureRenderTarget::newCompatibleRenderPassDes
 }
 
 // A render pass attachment must view exactly one mip level and one array
-// layer. The texture's own view qualifies only for a single-level, single-layer
-// 2D texture; anything else gets a view of its own, which the caller releases.
+// layer, in the write view format. The texture's own view qualifies only for a
+// single-level, single-layer 2D texture with the same read and write view
+// format; anything else gets a view of its own, which the caller releases.
 static WGPUTextureView attachmentView(QWebGPUTexture *texD, int layer, int level, bool *owned)
 {
     const bool isArrayOrCube = texD->flags().testFlag(QRhiTexture::CubeMap) || texD->arraySize() > 0;
-    if (layer == 0 && level == 0 && texD->mipLevelCount <= 1 && !isArrayOrCube) {
+    if (layer == 0 && level == 0 && texD->mipLevelCount <= 1 && !isArrayOrCube
+        && texD->wgpuReadViewFormat == texD->wgpuWriteViewFormat) {
         *owned = false;
         return texD->textureView;
     }
@@ -845,7 +865,7 @@ static WGPUTextureView attachmentView(QWebGPUTexture *texD, int layer, int level
     viewDesc.arrayLayerCount = 1;
     viewDesc.baseMipLevel = uint32_t(level);
     viewDesc.mipLevelCount = 1;
-    viewDesc.format = texD->wgpuFormat;
+    viewDesc.format = texD->wgpuWriteViewFormat;
     *owned = true;
     return wgpuTextureCreateView(texD->texture, &viewDesc);
 }
@@ -896,7 +916,7 @@ bool QWebGPUTextureRenderTarget::create()
                     viewDesc.dimension = WGPUTextureViewDimension_3D;
                     viewDesc.baseMipLevel = uint32_t(level);
                     viewDesc.mipLevelCount = 1;
-                    viewDesc.format = texD->wgpuFormat;
+                    viewDesc.format = texD->wgpuWriteViewFormat;
                     colorAttachmentViews[attIndex] = wgpuTextureCreateView(texD->texture, &viewDesc);
                     ownedColorAttachmentViews[attIndex] = true;
                     colorAttachmentDepthSlice[attIndex] = uint32_t(layer);
@@ -1360,7 +1380,7 @@ bool QWebGPUShaderResourceBindings::createWithBindingMap(const QShader::NativeRe
             QWebGPUTexture *texD = QRHI_RES(QWebGPUTexture, b->u.simage.tex);
             if (!texD) // storage texture layouts need the format; cannot be layout-only
                 break;
-            const WGPUTextureFormat fmt = QRhiWebGPU::toWgpuTextureFormat(texD->format(), texD->flags());
+            const WGPUTextureFormat fmt = texD->wgpuWriteViewFormat;
 
             WGPUBindGroupLayoutEntry layoutEntry = WGPU_BIND_GROUP_LAYOUT_ENTRY_INIT;
             layoutEntry.binding = uint32_t(nativeBinding.first);
@@ -2632,6 +2652,7 @@ bool QRhiWebGPU::isFeatureSupported(QRhi::Feature feature) const
     case QRhi::ReadBackNonUniformBuffer:
     case QRhi::PerRenderTargetBlending:
     case QRhi::HalfAttributes:
+    case QRhi::TextureViewFormat:
         return true;
     case QRhi::Timestamps:
         return caps.hasTimestampQuery;
