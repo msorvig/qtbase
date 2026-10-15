@@ -2516,6 +2516,7 @@ void QRhiWebGPU::destroy()
     executeDeferredReleases(true);
     finishActiveReadbacks(true);
     releaseMipGen();
+    releaseDepthReadback();
 
     if (!importedDevice) {
         if (device) {
@@ -3174,6 +3175,186 @@ void QRhiWebGPU::releaseMipGen()
     mipGen = {};
 }
 
+static bool isDepthTextureFormat(QRhiTexture::Format format)
+{
+    switch (format) {
+    case QRhiTexture::D16:
+    case QRhiTexture::D24:
+    case QRhiTexture::D24S8:
+    case QRhiTexture::D32F:
+    case QRhiTexture::D32FS8:
+        return true;
+    default:
+        return false;
+    }
+}
+
+static const char depthReadbackWgsl[] = R"(
+struct Params {
+    origin: vec2u,
+    size: vec2u,
+};
+@group(0) @binding(0) var t: texture_depth_2d;
+@group(0) @binding(1) var<storage, read_write> depth: array<f32>;
+@group(0) @binding(2) var<uniform> params: Params;
+@compute @workgroup_size(8, 8) fn main(@builtin(global_invocation_id) id: vec3u) {
+    if (id.x >= params.size.x || id.y >= params.size.y) {
+        return;
+    }
+    depth[id.y * params.size.x + id.x] = textureLoad(t, vec2i(params.origin + id.xy), 0);
+}
+)";
+
+// Reads back a depth or depth-stencil texture. WebGPU cannot copy the depth
+// aspect of depth24plus(-stencil8) at all, and a copy from any other depth or
+// stencil aspect must cover the whole subresource. So the depth values in rect
+// are loaded as floats in a compute pass, and the stencil aspect, if any, is
+// copied whole and cropped on the CPU. finishActiveReadbacks() converts the
+// result to the layout documented for QRhiResourceUpdateBatch::readBackTexture().
+void QRhiWebGPU::enqueueDepthReadback(TextureReadback *readback, QWebGPUTexture *texD,
+                                      const QRhiReadbackDescription &desc, const QRect &rect,
+                                      const QSize &subresSize)
+{
+    if (!depthReadback.module) {
+        WGPUShaderSourceWGSL wgslSource = WGPU_SHADER_SOURCE_WGSL_INIT;
+        wgslSource.code = { depthReadbackWgsl, sizeof(depthReadbackWgsl) - 1 };
+        WGPUShaderModuleDescriptor moduleDesc = WGPU_SHADER_MODULE_DESCRIPTOR_INIT;
+        moduleDesc.nextInChain = &wgslSource.chain;
+        depthReadback.module = wgpuDeviceCreateShaderModule(device, &moduleDesc);
+
+        WGPUBindGroupLayoutEntry entries[3] = { WGPU_BIND_GROUP_LAYOUT_ENTRY_INIT,
+                                                WGPU_BIND_GROUP_LAYOUT_ENTRY_INIT,
+                                                WGPU_BIND_GROUP_LAYOUT_ENTRY_INIT };
+        entries[0].binding = 0;
+        entries[0].visibility = WGPUShaderStage_Compute;
+        entries[0].texture.sampleType = WGPUTextureSampleType_Depth;
+        entries[0].texture.viewDimension = WGPUTextureViewDimension_2D;
+        entries[1].binding = 1;
+        entries[1].visibility = WGPUShaderStage_Compute;
+        entries[1].buffer.type = WGPUBufferBindingType_Storage;
+        entries[2].binding = 2;
+        entries[2].visibility = WGPUShaderStage_Compute;
+        entries[2].buffer.type = WGPUBufferBindingType_Uniform;
+        WGPUBindGroupLayoutDescriptor bglDesc = WGPU_BIND_GROUP_LAYOUT_DESCRIPTOR_INIT;
+        bglDesc.entryCount = 3;
+        bglDesc.entries = entries;
+        depthReadback.bindGroupLayout = wgpuDeviceCreateBindGroupLayout(device, &bglDesc);
+
+        WGPUPipelineLayoutDescriptor plDesc = WGPU_PIPELINE_LAYOUT_DESCRIPTOR_INIT;
+        plDesc.bindGroupLayoutCount = 1;
+        plDesc.bindGroupLayouts = &depthReadback.bindGroupLayout;
+        depthReadback.pipelineLayout = wgpuDeviceCreatePipelineLayout(device, &plDesc);
+
+        WGPUComputePipelineDescriptor pipelineDesc = WGPU_COMPUTE_PIPELINE_DESCRIPTOR_INIT;
+        pipelineDesc.layout = depthReadback.pipelineLayout;
+        pipelineDesc.compute.module = depthReadback.module;
+        pipelineDesc.compute.entryPoint = { "main", WGPU_STRLEN };
+        depthReadback.pipeline = wgpuDeviceCreateComputePipeline(device, &pipelineDesc);
+    }
+
+    const quint32 w = quint32(rect.width());
+    const quint32 h = quint32(rect.height());
+    const quint32 depthSize = w * h * sizeof(float);
+    // D24 is depth24plus-stencil8 too, but its readback has no stencil.
+    const bool stencil = texD->m_format == QRhiTexture::D24S8 || texD->m_format == QRhiTexture::D32FS8;
+
+    readback->depth = true;
+    readback->stencil = stencil;
+    readback->origin = rect.topLeft();
+    readback->bufferSize = depthSize;
+    if (stencil) {
+        readback->stencilOffset = (depthSize + 255) & ~255u;
+        readback->stencilBpl = (quint32(subresSize.width()) + 255) & ~255u;
+        readback->bufferSize = readback->stencilOffset + readback->stencilBpl * quint32(subresSize.height());
+    }
+
+    WGPUBufferDescriptor bufDesc = WGPU_BUFFER_DESCRIPTOR_INIT;
+    bufDesc.size = readback->bufferSize;
+    bufDesc.usage = WGPUBufferUsage_CopyDst | WGPUBufferUsage_MapRead;
+    readback->stagingBuffer = wgpuDeviceCreateBuffer(device, &bufDesc);
+
+    bufDesc.size = depthSize;
+    bufDesc.usage = WGPUBufferUsage_Storage | WGPUBufferUsage_CopySrc;
+    WGPUBuffer depthBuffer = wgpuDeviceCreateBuffer(device, &bufDesc);
+
+    const quint32 params[4] = { quint32(rect.x()), quint32(rect.y()), w, h };
+    bufDesc.size = sizeof(params);
+    bufDesc.usage = WGPUBufferUsage_Uniform | WGPUBufferUsage_CopyDst;
+    WGPUBuffer paramsBuffer = wgpuDeviceCreateBuffer(device, &bufDesc);
+    wgpuQueueWriteBuffer(queue, paramsBuffer, 0, params, sizeof(params));
+
+    WGPUTextureViewDescriptor viewDesc = WGPU_TEXTURE_VIEW_DESCRIPTOR_INIT;
+    viewDesc.dimension = WGPUTextureViewDimension_2D;
+    viewDesc.aspect = WGPUTextureAspect_DepthOnly;
+    viewDesc.baseMipLevel = uint32_t(desc.level());
+    viewDesc.mipLevelCount = 1;
+    viewDesc.baseArrayLayer = uint32_t(desc.layer());
+    viewDesc.arrayLayerCount = 1;
+    WGPUTextureView view = wgpuTextureCreateView(texD->texture, &viewDesc);
+
+    WGPUBindGroupEntry bgEntries[3] = { WGPU_BIND_GROUP_ENTRY_INIT, WGPU_BIND_GROUP_ENTRY_INIT,
+                                        WGPU_BIND_GROUP_ENTRY_INIT };
+    bgEntries[0].binding = 0;
+    bgEntries[0].textureView = view;
+    bgEntries[1].binding = 1;
+    bgEntries[1].buffer = depthBuffer;
+    bgEntries[1].size = depthSize;
+    bgEntries[2].binding = 2;
+    bgEntries[2].buffer = paramsBuffer;
+    bgEntries[2].size = sizeof(params);
+    WGPUBindGroupDescriptor bgDesc = WGPU_BIND_GROUP_DESCRIPTOR_INIT;
+    bgDesc.layout = depthReadback.bindGroupLayout;
+    bgDesc.entryCount = 3;
+    bgDesc.entries = bgEntries;
+    WGPUBindGroup bindGroup = wgpuDeviceCreateBindGroup(device, &bgDesc);
+
+    WGPUCommandEncoder enc = wgpuDeviceCreateCommandEncoder(device, nullptr);
+    WGPUComputePassEncoder pass = wgpuCommandEncoderBeginComputePass(enc, nullptr);
+    wgpuComputePassEncoderSetPipeline(pass, depthReadback.pipeline);
+    wgpuComputePassEncoderSetBindGroup(pass, 0, bindGroup, 0, nullptr);
+    wgpuComputePassEncoderDispatchWorkgroups(pass, (w + 7) / 8, (h + 7) / 8, 1);
+    wgpuComputePassEncoderEnd(pass);
+    wgpuComputePassEncoderRelease(pass);
+    wgpuCommandEncoderCopyBufferToBuffer(enc, depthBuffer, 0, readback->stagingBuffer, 0, depthSize);
+
+    if (stencil) {
+        WGPUTexelCopyTextureInfo src = WGPU_TEXEL_COPY_TEXTURE_INFO_INIT;
+        src.texture = texD->texture;
+        src.mipLevel = uint32_t(desc.level());
+        src.origin.z = uint32_t(desc.layer());
+        src.aspect = WGPUTextureAspect_StencilOnly;
+        WGPUTexelCopyBufferInfo dst = WGPU_TEXEL_COPY_BUFFER_INFO_INIT;
+        dst.buffer = readback->stagingBuffer;
+        dst.layout.offset = readback->stencilOffset;
+        dst.layout.bytesPerRow = readback->stencilBpl;
+        dst.layout.rowsPerImage = uint32_t(subresSize.height());
+        WGPUExtent3D copySize = { uint32_t(subresSize.width()), uint32_t(subresSize.height()), 1 };
+        wgpuCommandEncoderCopyTextureToBuffer(enc, &src, &dst, &copySize);
+    }
+
+    WGPUCommandBuffer cmdBuf = wgpuCommandEncoderFinish(enc, nullptr);
+    wgpuQueueSubmit(queue, 1, &cmdBuf);
+    wgpuCommandBufferRelease(cmdBuf);
+    wgpuCommandEncoderRelease(enc);
+    wgpuBindGroupRelease(bindGroup);
+    wgpuTextureViewRelease(view);
+    wgpuBufferRelease(paramsBuffer);
+    wgpuBufferRelease(depthBuffer);
+}
+
+void QRhiWebGPU::releaseDepthReadback()
+{
+    if (depthReadback.pipeline)
+        wgpuComputePipelineRelease(depthReadback.pipeline);
+    if (depthReadback.pipelineLayout)
+        wgpuPipelineLayoutRelease(depthReadback.pipelineLayout);
+    if (depthReadback.bindGroupLayout)
+        wgpuBindGroupLayoutRelease(depthReadback.bindGroupLayout);
+    if (depthReadback.module)
+        wgpuShaderModuleRelease(depthReadback.module);
+    depthReadback = {};
+}
+
 void QRhiWebGPU::enqueueResourceUpdates(QRhiCommandBuffer *cb, QRhiResourceUpdateBatch *resourceUpdates)
 {
     Q_UNUSED(cb);
@@ -3434,6 +3615,13 @@ void QRhiWebGPU::enqueueResourceUpdates(QRhiCommandBuffer *cb, QRhiResourceUpdat
 
             const QRect rect = u.rb.rect().isValid() ? u.rb.rect() : QRect(QPoint(0, 0), subresSize);
             readback.pixelSize = rect.size();
+
+            if (texD && isDepthTextureFormat(texD->m_format)) {
+                enqueueDepthReadback(&readback, texD, u.rb, rect, subresSize);
+                if (readback.stagingBuffer)
+                    activeTextureReadbacks.append(readback);
+                continue;
+            }
 
             quint32 bpl = 0;
             textureFormatInfo(readback.format, readback.pixelSize, &bpl, nullptr, nullptr);
@@ -4049,6 +4237,51 @@ static bool mapStagingBufferForRead(WGPUInstance instance, WGPUBuffer stagingBuf
     return ctx.complete && ctx.status == WGPUMapAsyncStatus_Success;
 }
 
+// Converts the floats (and stencil) written by enqueueDepthReadback() to the
+// layout documented for QRhiResourceUpdateBatch::readBackTexture().
+static void convertDepthReadback(const QRhiWebGPU::TextureReadback &readback, const char *mapped)
+{
+    const int w = readback.pixelSize.width();
+    const int h = readback.pixelSize.height();
+    quint32 bpp = 4;
+    if (readback.format == QRhiTexture::D16)
+        bpp = 2;
+    else if (readback.format == QRhiTexture::D32FS8)
+        bpp = 8;
+    QByteArray &data = readback.result->data;
+    data.resize(qsizetype(bpp) * w * h);
+    char *dst = data.data();
+    for (int y = 0; y < h; ++y) {
+        for (int x = 0; x < w; ++x) {
+            const float depth = qBound(0.0f, qFromUnaligned<float>(mapped + (y * w + x) * sizeof(float)), 1.0f);
+            const quint32 stencil = readback.stencil
+                    ? quint8(mapped[readback.stencilOffset
+                                    + quint32(readback.origin.y() + y) * readback.stencilBpl
+                                    + quint32(readback.origin.x() + x)])
+                    : 0;
+            char *texel = dst + (y * w + x) * bpp;
+            switch (readback.format) {
+            case QRhiTexture::D16:
+                qToUnaligned(quint16(qRound(depth * 0xFFFF)), texel);
+                break;
+            case QRhiTexture::D24:
+            case QRhiTexture::D24S8:
+                qToUnaligned((quint32(qRound(double(depth) * 0xFFFFFF)) << 8) | stencil, texel);
+                break;
+            case QRhiTexture::D32F:
+                qToUnaligned(depth, texel);
+                break;
+            case QRhiTexture::D32FS8:
+                qToUnaligned(depth, texel);
+                qToUnaligned(stencil, texel + 4);
+                break;
+            default:
+                Q_UNREACHABLE();
+            }
+        }
+    }
+}
+
 void QRhiWebGPU::finishActiveReadbacks(bool forced)
 {
     QVarLengthArray<std::function<void()>, 4> bufferCallbacks;
@@ -4136,6 +4369,16 @@ void QRhiWebGPU::finishActiveReadbacks(bool forced)
             if (mappedData) {
                 readback.result->format = readback.format;
                 readback.result->pixelSize = readback.pixelSize;
+
+                if (readback.depth) {
+                    convertDepthReadback(readback, static_cast<const char *>(mappedData));
+                    if (readback.result->completed)
+                        completedCallbacks.append(readback.result->completed);
+                    wgpuBufferUnmap(readback.stagingBuffer);
+                    wgpuBufferRelease(readback.stagingBuffer);
+                    activeTextureReadbacks.remove(i);
+                    continue;
+                }
 
                 // Calculate actual bytes per line (may be aligned)
                 quint32 bpl = 0;

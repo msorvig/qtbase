@@ -485,8 +485,19 @@ public:
         quint32 bufferSize = 0;
         QSize pixelSize;
         QRhiTexture::Format format;
+        // Depth formats: the stagingBuffer holds the depth values of the
+        // requested rect as tightly packed floats, followed (at stencilOffset)
+        // by the stencil aspect of the whole subresource, if any.
+        bool depth = false;
+        bool stencil = false;
+        quint32 stencilOffset = 0;
+        quint32 stencilBpl = 0;
+        QPoint origin;
     };
     QVarLengthArray<TextureReadback, 2> activeTextureReadbacks;
+    void enqueueDepthReadback(TextureReadback *readback, QWebGPUTexture *texD,
+                              const QRhiReadbackDescription &desc, const QRect &rect,
+                              const QSize &subresSize);
     struct BufferReadback {
         QRhiReadbackResult *result;
         WGPUBuffer stagingBuffer = nullptr;
@@ -507,6 +518,17 @@ public:
     } mipGen;
     void generateMips(QWebGPUTexture *texD);
     void releaseMipGen();
+
+    // Depth texture readback: WebGPU cannot copy the depth aspect of
+    // depth24plus formats, and copies of the other depth formats must cover
+    // the whole subresource, so the depth values are loaded in a compute pass.
+    struct DepthReadback {
+        WGPUShaderModule module = nullptr;
+        WGPUBindGroupLayout bindGroupLayout = nullptr;
+        WGPUPipelineLayout pipelineLayout = nullptr;
+        WGPUComputePipeline pipeline = nullptr;
+    } depthReadback;
+    void releaseDepthReadback();
 };
 
 QT_END_NAMESPACE
