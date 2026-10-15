@@ -1,0 +1,20 @@
+// Copyright (C) 2026 The Qt Company Ltd.
+// SPDX-License-Identifier: LicenseRef-Qt-Commercial OR LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only
+
+// Emscripten threading.h stub for WASI (single-threaded).
+#ifndef QT_EMSCRIPTEN_THREADING_SHIM_H
+#define QT_EMSCRIPTEN_THREADING_SHIM_H
+
+#ifdef __EMSCRIPTEN__
+#  include_next <emscripten/threading.h>
+#else
+
+#include <cstdint>
+
+typedef uintptr_t pthread_t;
+
+inline pthread_t emscripten_main_runtime_thread_id() { return 0; }
+inline int emscripten_is_main_runtime_thread() { return 1; }
+
+#endif // __EMSCRIPTEN__
+#endif

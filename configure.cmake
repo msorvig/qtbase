@@ -1120,8 +1120,8 @@ qt_feature("thread" PUBLIC
 qt_feature("webhost" PUBLIC
     SECTION "Kernel"
     LABEL "Web host"
-    PURPOSE "Provides access to web APIs (JavaScript, DOM, fetch) through emscripten::val."
-    CONDITION WASM
+    PURPOSE "Provides access to web APIs (JavaScript, DOM, fetch) through emscripten::val. Always available with Emscripten; on WASI it requires nuscripten (QT_NUSCRIPTEN_INCLUDE_DIR)."
+    CONDITION WASM OR ( WASI AND DEFINED QT_NUSCRIPTEN_INCLUDE_DIR )
 )
 qt_feature("future" PUBLIC
     SECTION "Kernel"

@@ -121,6 +121,11 @@ qt_internal_extend_target(Network CONDITION WASM
         access/qnetworkreplywasmimpl.cpp access/qnetworkreplywasmimpl_p.h
 )
 
+qt_internal_extend_target(Network CONDITION WASI AND QT_FEATURE_webhost
+    SOURCES
+        access/qnetworkreplywebimpl.cpp access/qnetworkreplywebimpl_p.h
+)
+
 qt_internal_extend_target(Network CONDITION QT_FEATURE_http
     SOURCES
         access/http2/bitstreams.cpp access/http2/bitstreams_p.h

@@ -30,7 +30,9 @@
 #if QT_CONFIG(draganddrop)
 #include "qwasmdrag.h"
 #endif
+#if QT_CONFIG(opengl)
 #include "qwasmopenglcontext.h"
+#endif
 
 #include <iostream>
 #include <sstream>
@@ -258,7 +260,9 @@ void QWasmWindow::registerEventHandlers()
 
 QWasmWindow::~QWasmWindow()
 {
+#if QT_CONFIG(opengl)
     QWasmOpenGLContext::destroyWebGLContext(this);
+#endif
 
 #if QT_CONFIG(accessibility)
     QWasmAccessibility::onRemoveWindow(window());
@@ -274,7 +278,7 @@ QWasmWindow::~QWasmWindow()
     m_context2d = emscripten::val::undefined();
     commitParent(nullptr);
     if (m_requestAnimationFrameId > -1)
-        emscripten_cancel_animation_frame(m_requestAnimationFrameId);
+        emscripten::val::global("window").call<void>("cancelAnimationFrame", m_requestAnimationFrameId);
 }
 
 void QWasmWindow::transferFocus()

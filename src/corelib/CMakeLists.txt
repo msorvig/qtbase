@@ -1633,12 +1633,16 @@ if(QT_FEATURE_mimetype AND QT_FEATURE_mimetype_database)
     )
 endif()
 
-# Web host platform code
+# Web host platform code (Emscripten, and WASI with nuscripten)
 qt_internal_extend_target(Core CONDITION QT_FEATURE_webhost
     SOURCES
         platform/wasm/qstdweb.cpp platform/wasm/qstdweb_p.h
         platform/wasm/qwasmsuspendresumecontrol.cpp platform/wasm/qwasmsuspendresumecontrol_p.h
         platform/wasm/qwasmlocalfileengine.cpp platform/wasm/qwasmlocalfileengine_p.h
+    INCLUDE_DIRECTORIES
+        platform/wasm/shims
+    PUBLIC_INCLUDE_DIRECTORIES
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/platform/wasm/shims>
 )
 
 # Emscripten-only platform code
@@ -1648,6 +1652,14 @@ qt_internal_extend_target(Core CONDITION WASM
         platform/wasm/qwasmglobal.cpp platform/wasm/qwasmglobal_p.h
         platform/wasm/qwasmsocket.cpp platform/wasm/qwasmsocket_p.h
         kernel/qeventdispatcher_wasm.cpp kernel/qeventdispatcher_wasm_p.h
+)
+
+# WASI web host: add nuscripten include path
+qt_internal_extend_target(Core CONDITION WASI AND QT_FEATURE_webhost
+    INCLUDE_DIRECTORIES
+        ${QT_NUSCRIPTEN_INCLUDE_DIR}
+    PUBLIC_INCLUDE_DIRECTORIES
+        $<BUILD_INTERFACE:${QT_NUSCRIPTEN_INCLUDE_DIR}>
 )
 
 qt_internal_extend_target(Core CONDITION QT_FEATURE_ctf
