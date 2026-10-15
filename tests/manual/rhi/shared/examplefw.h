@@ -23,6 +23,11 @@
 #include "imgui.h"
 #endif
 
+#ifdef EXAMPLEFW_QTAGENT
+#include "qtagent.h"
+#include "agentsetup.h"
+#endif
+
 QShader getShader(const QString &name)
 {
     QFile f(name);
@@ -48,7 +53,8 @@ enum GraphicsApi
     Vulkan,
     D3D11,
     D3D12,
-    Metal
+    Metal,
+    WebGPU
 };
 
 GraphicsApi graphicsApi;
@@ -68,6 +74,8 @@ QString graphicsApiName()
         return QLatin1String("Direct3D 12");
     case Metal:
         return QLatin1String("Metal");
+    case WebGPU:
+        return QLatin1String("WebGPU");
     default:
         break;
     }
@@ -127,6 +135,41 @@ protected:
 
     QMatrix4x4 m_proj;
 
+#ifdef EXAMPLEFW_QTAGENT
+    // Path set by the agent RPC handler; picked up in the next render() call.
+    QString m_pendingScreenshotPath;
+
+    void saveRhiScreenshot(const QString &path) {
+        // Initiate a readback of the swapchain backbuffer.
+        // QRhiReadbackDescription with no texture = read from the swapchain.
+        // Submitted via resourceUpdate() outside a render pass; enqueued into
+        // the current frame's command buffer and fires after GPU finishes.
+        if (!m_r || !m_sc || !m_hasSwapChain) return;
+        QRhiCommandBuffer *cb = m_sc->currentFrameCommandBuffer();
+        if (!cb) return;
+
+        QRhiReadbackDescription desc; // null texture → swapchain backbuffer
+        auto *result = new QRhiReadbackResult;
+        result->completed = [this, result, path] {
+            const QSize sz = result->pixelSize;
+            QImage::Format fmt = result->format == QRhiTexture::BGRA8
+                                  ? QImage::Format_ARGB32_Premultiplied
+                                  : QImage::Format_RGBA8888_Premultiplied;
+            QImage img(reinterpret_cast<const uchar *>(result->data.constData()),
+                       sz.width(), sz.height(), fmt);
+            if (m_r->isYUpInFramebuffer())
+                img = img.mirrored();
+            img.save(path);
+            fprintf(stderr, "[examplefw] screenshot saved: %s (%dx%d)\n",
+                    qPrintable(path), sz.width(), sz.height());
+            delete result;
+        };
+        QRhiResourceUpdateBatch *rb = m_r->nextResourceUpdateBatch();
+        rb->readBackTexture(desc, result);
+        cb->resourceUpdate(rb);
+    }
+#endif
+
     QElapsedTimer m_timer;
     int m_frameCount;
 
@@ -160,6 +203,13 @@ Window::Window()
         break;
     case Metal:
         setSurfaceType(MetalSurface);
+        break;
+    case WebGPU:
+#if defined(__EMSCRIPTEN__)
+        setSurfaceType(OpenGLSurface);
+#elif QT_CONFIG(metal)
+        setSurfaceType(MetalSurface);
+#endif
         break;
     default:
         break;
@@ -278,6 +328,11 @@ void Window::init()
         m_r = QRhi::create(QRhi::Metal, &params, rhiFlags);
     }
 #endif
+
+    if (graphicsApi == WebGPU) {
+        QRhiWebGPUInitParams params;
+        m_r = QRhi::create(QRhi::WebGPU, &params, rhiFlags);
+    }
 
     if (!adapters.isEmpty()) {
         qDebug() << "For information, enumerateAdapters() reports:";
@@ -431,6 +486,13 @@ void Window::render()
 
     customRender();
 
+#ifdef EXAMPLEFW_QTAGENT
+    if (!m_pendingScreenshotPath.isEmpty()) {
+        saveRhiScreenshot(m_pendingScreenshotPath);
+        m_pendingScreenshotPath.clear();
+    }
+#endif
+
     m_r->endFrame(m_sc, endFrameFlags);
 
     if (!scFlags.testFlag(QRhiSwapChain::NoVSync))
@@ -446,7 +508,9 @@ int main(int argc, char **argv)
     QLoggingCategory::setFilterRules(QLatin1String("qt.rhi.general=true"));
 
     // Defaults.
-#if defined(Q_OS_WIN)
+#if defined(__EMSCRIPTEN__)
+    graphicsApi = WebGPU;
+#elif defined(Q_OS_WIN)
     graphicsApi = D3D11;
 #elif QT_CONFIG(metal)
     graphicsApi = Metal;
@@ -471,6 +535,8 @@ int main(int argc, char **argv)
     cmdLineParser.addOption(d3d12Option);
     QCommandLineOption mtlOption({ "m", "metal" }, QLatin1String("Metal"));
     cmdLineParser.addOption(mtlOption);
+    QCommandLineOption webgpuOption({ "w", "webgpu" }, QLatin1String("WebGPU"));
+    cmdLineParser.addOption(webgpuOption);
     // Testing cleanup both with QWindow::close() (hitting X or Alt-F4) and
     // QCoreApplication::quit() (e.g. what a menu widget would do) is important.
     // Use this parameter for the latter.
@@ -511,6 +577,8 @@ int main(int argc, char **argv)
         graphicsApi = D3D12;
     if (cmdLineParser.isSet(mtlOption))
         graphicsApi = Metal;
+    if (cmdLineParser.isSet(webgpuOption))
+        graphicsApi = WebGPU;
 
     qDebug("Selected graphics API is %s", qPrintable(graphicsApiName()));
     qDebug("This is a multi-api example, use command line arguments to override:\n%s", qPrintable(cmdLineParser.helpText()));
@@ -585,6 +653,29 @@ int main(int argc, char **argv)
     w.resize(1280, 720);
     w.setTitle(QCoreApplication::applicationName() + QLatin1String(" - ") + graphicsApiName());
     w.show();
+
+#ifdef EXAMPLEFW_QTAGENT
+    {
+        static QtAgent s_agent;
+        AgentSetup::registerAll(s_agent);
+
+        // rhi/screenshot { path } — reads back the swapchain framebuffer via QRhi;
+        // works for Metal/WebGPU regardless of window Z-order or occlusion.
+        s_agent.registerMethod(QStringLiteral("rhi/screenshot"), [&w](const QJsonObject &p) {
+            QString path = p.value(QStringLiteral("path")).toString();
+            if (path.isEmpty())
+                return QJsonObject{{QStringLiteral("error"), QStringLiteral("'path' required")}};
+            w.m_pendingScreenshotPath = path;
+            return QJsonObject{{QStringLiteral("ok"), true}, {QStringLiteral("path"), path}};
+        });
+
+        if (s_agent.start())
+            fprintf(stderr, "[examplefw] QtAgent listening on %s\n",
+                    qPrintable(s_agent.socketPath()));
+        else
+            fprintf(stderr, "[examplefw] QtAgent failed to start\n");
+    }
+#endif
 
     if (cmdLineParser.isSet(sdOption))
         QTimer::singleShot(5000, qGuiApp, SLOT(quit()));

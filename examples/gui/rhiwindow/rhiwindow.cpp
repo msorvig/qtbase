@@ -25,6 +25,9 @@ RhiWindow::RhiWindow(QRhi::Implementation graphicsApi)
     case QRhi::Metal:
         setSurfaceType(MetalSurface);
         break;
+    case QRhi::WebGPU:
+        setSurfaceType(MetalSurface); // WebGPU uses MetalSurface on macOS
+        break;
     case QRhi::Null:
         break; // RasterSurface
     }
@@ -46,6 +49,8 @@ QString RhiWindow::graphicsApiName() const
         return QLatin1String("Direct3D 12");
     case QRhi::Metal:
         return QLatin1String("Metal");
+    case QRhi::WebGPU:
+        return QLatin1String("WebGPU");
     }
     return QString();
 }
@@ -153,6 +158,13 @@ void RhiWindow::init()
     }
 #endif
 
+#if QT_CONFIG(webgpu)
+    if (m_graphicsApi == QRhi::WebGPU) {
+        QRhiWebGPUInitParams params;
+        m_rhi.reset(QRhi::create(QRhi::WebGPU, &params));
+    }
+#endif
+
     if (!m_rhi)
         qFatal("Failed to create RHI backend");
 //! [rhi-init]
@@ -246,9 +258,10 @@ void RhiWindow::render()
 
 static float vertexData[] = {
     // Y up (note clipSpaceCorrMatrix in m_viewProjection), CCW
-     0.0f,   0.5f,   1.0f, 0.0f, 0.0f,
-    -0.5f,  -0.5f,   0.0f, 1.0f, 0.0f,
-     0.5f,  -0.5f,   0.0f, 0.0f, 1.0f,
+    // Position (vec4: x, y, z, w) followed by Color (vec3: r, g, b)
+     0.0f,   0.5f,  0.0f, 1.0f,   1.0f, 0.0f, 0.0f,
+    -0.5f,  -0.5f,  0.0f, 1.0f,   0.0f, 1.0f, 0.0f,
+     0.5f,  -0.5f,  0.0f, 1.0f,   0.0f, 0.0f, 1.0f,
 };
 
 //! [getshader]
@@ -349,11 +362,11 @@ void HelloWindow::customInit()
     });
     QRhiVertexInputLayout inputLayout;
     inputLayout.setBindings({
-        { 5 * sizeof(float) }
+        { 7 * sizeof(float) }  // vec4 position + vec3 color
     });
     inputLayout.setAttributes({
-        { 0, 0, QRhiVertexInputAttribute::Float2, 0 },
-        { 0, 1, QRhiVertexInputAttribute::Float3, 2 * sizeof(float) }
+        { 0, 0, QRhiVertexInputAttribute::Float4, 0 },
+        { 0, 1, QRhiVertexInputAttribute::Float3, 4 * sizeof(float) }
     });
     m_colorPipeline->setVertexInputLayout(inputLayout);
     m_colorPipeline->setShaderResourceBindings(m_colorTriSrb.get());

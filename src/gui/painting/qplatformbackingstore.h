@@ -48,6 +48,7 @@ public:
         Vulkan,
         D3D11,
         D3D12,
+        WebGPU,
         Null
     };
     Q_ENUM(Api)

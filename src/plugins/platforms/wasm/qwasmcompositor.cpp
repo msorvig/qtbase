@@ -123,6 +123,8 @@ void QWasmCompositor::deliverUpdateRequest(
 
     // Make sure the DPR value for the window is up to date on expose/repaint.
     // FIXME: listen to native DPR change events instead, if/when available.
+    // The canvas size depends on the DPR, resize it before rendering at the new DPR.
+    window->updateCanvasSize();
     QWindowSystemInterface::handleWindowDevicePixelRatioChanged(qwindow);
 
     // Update by deliverUpdateRequest and expose event according to requested update

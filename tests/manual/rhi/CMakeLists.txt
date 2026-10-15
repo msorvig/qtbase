@@ -1,6 +1,21 @@
 # Copyright (C) 2022 The Qt Company Ltd.
 # SPDX-License-Identifier: BSD-3-Clause
 
+# Optional QtAgent integration for automated screenshot capture.
+# Set QTAGENT_DIR to the qt-agent source/build root to enable.
+if(DEFINED QTAGENT_DIR AND EXISTS "${QTAGENT_DIR}/build/libQtAgentLib.a")
+    find_package(Qt6 COMPONENTS Network Widgets QUIET)
+    add_library(QtAgentLib STATIC IMPORTED GLOBAL)
+    set_target_properties(QtAgentLib PROPERTIES
+        IMPORTED_LOCATION "${QTAGENT_DIR}/build/libQtAgentLib.a"
+        INTERFACE_INCLUDE_DIRECTORIES "${QTAGENT_DIR}"
+        INTERFACE_COMPILE_DEFINITIONS EXAMPLEFW_QTAGENT
+        INTERFACE_LINK_LIBRARIES "Qt6::Network;Qt6::Widgets"
+    )
+    link_libraries(QtAgentLib)
+    message(STATUS "QtAgent integration enabled from ${QTAGENT_DIR}")
+endif()
+
 add_subdirectory(hellominimalcrossgfxtriangle)
 add_subdirectory(compressedtexture_bc1)
 add_subdirectory(compressedtexture_bc1_subupload)
