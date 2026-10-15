@@ -2158,6 +2158,10 @@ bool QWebGPUSwapChain::createOrResize()
     config.width = pixelSize.width();
     config.height = pixelSize.height();
     config.usage = WGPUTextureUsage_RenderAttachment | WGPUTextureUsage_CopySrc;
+#ifdef __EMSCRIPTEN__
+    // QRhiWebGPU::finish() restores the canvas texture after a wait
+    config.usage |= WGPUTextureUsage_CopyDst;
+#endif
     config.presentMode = WGPUPresentMode_Fifo;
 #ifdef __EMSCRIPTEN__
     WGPUSurfaceColorManagement colorManagement = WGPU_SURFACE_COLOR_MANAGEMENT_INIT;
@@ -2880,11 +2884,70 @@ QRhi::FrameOpResult QRhiWebGPU::endOffscreenFrame(QRhi::EndFrameFlags flags)
     return QRhi::FrameOpSuccess;
 }
 
+#ifdef Q_OS_WASM
+static void copyWholeTexture(WGPUDevice device, WGPUQueue queue, WGPUTexture src, WGPUTexture dst,
+                             const QSize &size)
+{
+    WGPUTexelCopyTextureInfo srcInfo = WGPU_TEXEL_COPY_TEXTURE_INFO_INIT;
+    srcInfo.texture = src;
+    WGPUTexelCopyTextureInfo dstInfo = WGPU_TEXEL_COPY_TEXTURE_INFO_INIT;
+    dstInfo.texture = dst;
+    WGPUExtent3D ext = { uint32_t(size.width()), uint32_t(size.height()), 1 };
+    WGPUCommandEncoder enc = wgpuDeviceCreateCommandEncoder(device, nullptr);
+    wgpuCommandEncoderCopyTextureToTexture(enc, &srcInfo, &dstInfo, &ext);
+    WGPUCommandBuffer cmdBuf = wgpuCommandEncoderFinish(enc, nullptr);
+    wgpuQueueSubmit(queue, 1, &cmdBuf);
+    wgpuCommandBufferRelease(cmdBuf);
+    wgpuCommandEncoderRelease(enc);
+}
+#endif
+
 QRhi::FrameOpResult QRhiWebGPU::finish()
 {
+#ifdef Q_OS_WASM
+    // Waiting for readbacks yields to the browser, which expires the canvas
+    // texture of the current swapchain frame. Save its contents to a
+    // temporary texture, acquire the canvas texture again after the wait, and
+    // copy the contents back. Normal frames do not pay for this; only a
+    // finish() with pending readbacks inside a swapchain frame does.
+    QWebGPUSwapChain *swapChainD = currentSwapChain;
+    WGPUTexture saved = nullptr;
+    if (swapChainD && swapChainD->currentTexture
+            && (!activeTextureReadbacks.isEmpty() || !activeBufferReadbacks.isEmpty())) {
+        WGPUTextureDescriptor desc = WGPU_TEXTURE_DESCRIPTOR_INIT;
+        desc.usage = WGPUTextureUsage_CopySrc | WGPUTextureUsage_CopyDst;
+        desc.size = { uint32_t(swapChainD->pixelSize.width()), uint32_t(swapChainD->pixelSize.height()), 1 };
+        desc.format = swapChainD->surfaceFormat;
+        saved = wgpuDeviceCreateTexture(device, &desc);
+        copyWholeTexture(device, queue, swapChainD->currentTexture, saved, swapChainD->pixelSize);
+    }
+#endif
+
     // Passes and readback copies are submitted as they are recorded, so all
     // that is left is waiting for the readbacks.
     finishActiveReadbacks(true);
+
+#ifdef Q_OS_WASM
+    if (saved) {
+        WGPUSurfaceTexture surfaceTexture;
+        wgpuSurfaceGetCurrentTexture(swapChainD->surface, &surfaceTexture);
+        if (surfaceTexture.status == WGPUSurfaceGetCurrentTextureStatus_SuccessOptimal
+                || surfaceTexture.status == WGPUSurfaceGetCurrentTextureStatus_SuccessSuboptimal) {
+            wgpuTextureViewRelease(swapChainD->currentTextureView);
+            wgpuTextureRelease(swapChainD->currentTexture);
+            swapChainD->currentTexture = surfaceTexture.texture;
+            swapChainD->currentTextureView = wgpuTextureCreateView(swapChainD->currentTexture, nullptr);
+            copyWholeTexture(device, queue, saved, swapChainD->currentTexture, swapChainD->pixelSize);
+            qCDebug(lcWebGPU, "QRhiWebGPU::finish() reacquired surfaceTexture=%p", swapChainD->currentTexture);
+        } else {
+            qWarning("QRhiWebGPU::finish: failed to reacquire the canvas texture (status %d)",
+                     int(surfaceTexture.status));
+            if (surfaceTexture.texture)
+                wgpuTextureRelease(surfaceTexture.texture);
+        }
+        wgpuTextureRelease(saved);
+    }
+#endif
     return QRhi::FrameOpSuccess;
 }
 
