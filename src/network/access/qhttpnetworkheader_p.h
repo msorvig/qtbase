@@ -23,7 +23,7 @@
 #include <qshareddata.h>
 #include <qurl.h>
 
-#ifndef Q_OS_WASM
+#if !QT_CONFIG(webhost)
 QT_REQUIRE_CONFIG(http);
 #endif
 

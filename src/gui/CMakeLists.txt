@@ -27,7 +27,7 @@ if (QT_FEATURE_gui)
         set(_default_platform "eglfs")
     elseif(HAIKU)
         set(_default_platform "haiku")
-    elseif(WASM)
+    elseif(QT_FEATURE_webhost)
         set(_default_platform "wasm")
     elseif(WASI)
         set(_default_platform "minimal")
@@ -428,7 +428,7 @@ qt_internal_extend_target(Gui CONDITION UIKIT
         platform/ios/qiosnativeinterface.cpp
 )
 
-qt_internal_extend_target(Gui CONDITION WASM
+qt_internal_extend_target(Gui CONDITION QT_FEATURE_webhost
     SOURCES
         platform/wasm/qwasmnativeinterface.cpp
 )
@@ -1084,7 +1084,7 @@ add_custom_command(
 )
 set_source_files_properties(${vulkan_fun_outputs} PROPERTIES _qt_syncqt_exclude_from_docs TRUE)
 
-qt_internal_extend_target(Gui CONDITION WASM
+qt_internal_extend_target(Gui CONDITION QT_FEATURE_webhost
     SOURCES
         platform/wasm/qlocalfileapi.cpp platform/wasm/qlocalfileapi_p.h
         platform/wasm/qwasmlocalfileaccess.cpp platform/wasm/qwasmlocalfileaccess_p.h

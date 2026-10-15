@@ -402,7 +402,7 @@ public:
     quint32 filtersDescendantEvents : 1;
     quint32 sceneTransformTranslateOnly : 1;
     quint32 notifyBoundingRectChanged : 1;
-#ifdef Q_OS_WASM
+#ifdef Q_PROCESSOR_WASM
     unsigned char :0; //this aligns 64bit field for wasm see QTBUG-65259
 #endif
     // New 32 bits

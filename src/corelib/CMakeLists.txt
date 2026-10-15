@@ -718,7 +718,7 @@ if(NOT WIN32)
     set_source_files_properties(kernel/qwineventnotifier.h PROPERTIES SKIP_AUTOMOC ON)
 endif()
 
-qt_internal_extend_target(Core CONDITION WASM
+qt_internal_extend_target(Core CONDITION QT_FEATURE_webhost
     SOURCES
         kernel/qcore_wasm.cpp)
 
@@ -974,7 +974,7 @@ qt_internal_extend_target(Core CONDITION APPLE
         text/qlocale_mac.mm
 )
 
-qt_internal_extend_target(Core CONDITION UNIX AND NOT APPLE AND NOT WASM AND NOT ANDROID
+qt_internal_extend_target(Core CONDITION UNIX AND NOT APPLE AND NOT QT_FEATURE_webhost AND NOT ANDROID
     SOURCES
         text/qlocale_unix.cpp
 )
@@ -985,7 +985,7 @@ qt_internal_extend_target(Core CONDITION QT_FEATURE_winsdkicu
         icuuc icuin
 )
 
-qt_internal_extend_target(Core CONDITION WASM
+qt_internal_extend_target(Core CONDITION QT_FEATURE_webhost
     SOURCES
         text/qlocale_wasm.cpp
 )
@@ -1633,14 +1633,20 @@ if(QT_FEATURE_mimetype AND QT_FEATURE_mimetype_database)
     )
 endif()
 
+# Web host platform code
+qt_internal_extend_target(Core CONDITION QT_FEATURE_webhost
+    SOURCES
+        platform/wasm/qstdweb.cpp platform/wasm/qstdweb_p.h
+        platform/wasm/qwasmsuspendresumecontrol.cpp platform/wasm/qwasmsuspendresumecontrol_p.h
+        platform/wasm/qwasmlocalfileengine.cpp platform/wasm/qwasmlocalfileengine_p.h
+)
+
+# Emscripten-only platform code
 qt_internal_extend_target(Core CONDITION WASM
     SOURCES
         platform/wasm/qwasmanimationdriver.cpp platform/wasm/qwasmanimationdriver_p.h
         platform/wasm/qwasmglobal.cpp platform/wasm/qwasmglobal_p.h
-        platform/wasm/qstdweb.cpp platform/wasm/qstdweb_p.h
         platform/wasm/qwasmsocket.cpp platform/wasm/qwasmsocket_p.h
-        platform/wasm/qwasmsuspendresumecontrol.cpp platform/wasm/qwasmsuspendresumecontrol_p.h
-        platform/wasm/qwasmlocalfileengine.cpp platform/wasm/qwasmlocalfileengine_p.h
         kernel/qeventdispatcher_wasm.cpp kernel/qeventdispatcher_wasm_p.h
 )
 

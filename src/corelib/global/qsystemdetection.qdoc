@@ -215,5 +215,8 @@
     \macro Q_OS_WASM
     \relates <QtSystemDetection>
 
-    Defined on Web Assembly.
+    Defined on WebAssembly when building with Emscripten.
+
+    Use QT_CONFIG(webhost) to check whether web APIs are available,
+    and Q_PROCESSOR_WASM to check for the WebAssembly instruction set.
 */

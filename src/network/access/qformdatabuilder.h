@@ -16,7 +16,7 @@
 
 #include <memory>
 
-#ifndef Q_OS_WASM
+#if !QT_CONFIG(webhost)
 QT_REQUIRE_CONFIG(http);
 #endif
 

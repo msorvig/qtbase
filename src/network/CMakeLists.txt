@@ -109,11 +109,15 @@ qt_internal_extend_target(Network CONDITION APPLE
         ${FWSecurity}
 )
 
-qt_internal_extend_target(Network CONDITION WASM
+qt_internal_extend_target(Network CONDITION QT_FEATURE_webhost
     SOURCES
         access/qformdatabuilder.cpp access/qformdatabuilder.h
         access/qhttpmultipart.cpp access/qhttpmultipart.h access/qhttpmultipart_p.h
         access/qhttpnetworkheader.cpp access/qhttpnetworkheader_p.h
+)
+
+qt_internal_extend_target(Network CONDITION WASM
+    SOURCES
         access/qnetworkreplywasmimpl.cpp access/qnetworkreplywasmimpl_p.h
 )
 

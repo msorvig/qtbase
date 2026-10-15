@@ -1117,6 +1117,12 @@ qt_feature("thread" PUBLIC
     PURPOSE "Provides QThread and related classes."
     AUTODETECT NOT WASM AND NOT WASI
 )
+qt_feature("webhost" PUBLIC
+    SECTION "Kernel"
+    LABEL "Web host"
+    PURPOSE "Provides access to web APIs (JavaScript, DOM, fetch) through emscripten::val."
+    CONDITION WASM
+)
 qt_feature("future" PUBLIC
     SECTION "Kernel"
     LABEL "QFuture"

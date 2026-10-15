@@ -19,6 +19,10 @@
 #include <QtGui/private/qtguiglobal_p.h>
 #include <QtCore/qbasictimer.h>
 #include <QtCore/qrect.h>
+
+#if QT_CONFIG(webhost)
+#include <emscripten/val.h>
+#endif
 #include <QtCore/qnativeinterface.h>
 #include <QtGui/qwindow.h>
 
@@ -63,7 +67,7 @@ public:
 
 namespace QNativeInterface::Private {
 
-#if defined(Q_OS_WASM) || defined(Q_QDOC)
+#if QT_CONFIG(webhost) || defined(Q_QDOC)
 struct Q_GUI_EXPORT QWasmWindow
 {
     QT_DECLARE_NATIVE_INTERFACE(QWasmWindow, 1, QWindow)

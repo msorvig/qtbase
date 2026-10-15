@@ -45,7 +45,7 @@
 #elif defined(Q_OS_WIN)
 #  include <QtCore/qt_windows.h>
 #endif
-#if defined(Q_OS_WASM)
+#if QT_CONFIG(webhost)
 #include <private/qwasmlocalfileaccess_p.h>
 #endif
 
@@ -2319,7 +2319,7 @@ QList<QUrl> QFileDialog::getOpenFileUrls(QWidget *parent,
 */
 void QFileDialog::getOpenFileContent(const QString &nameFilter, const std::function<void(const QString &, const QByteArray &)> &fileOpenCompleted, QWidget *parent)
 {
-#ifdef Q_OS_WASM
+#if QT_CONFIG(webhost)
     Q_UNUSED(parent);
     auto openFileImpl = std::make_shared<std::function<void(void)>>();
     QString fileName;
@@ -2390,7 +2390,7 @@ void QFileDialog::getOpenFileContent(const QString &nameFilter, const std::funct
 */
 void QFileDialog::saveFileContent(const QByteArray &fileContent, const QString &fileNameHint, QWidget *parent)
 {
-#ifdef Q_OS_WASM
+#if QT_CONFIG(webhost)
     Q_UNUSED(parent);
     QWasmLocalFileAccess::saveFile(fileContent, fileNameHint.toStdString());
 #else

@@ -968,7 +968,7 @@ void QOpenGLWidgetPrivate::render()
     f->glViewport(0, 0, q->width() * q->devicePixelRatio(), q->height() * q->devicePixelRatio());
     inPaintGL = true;
 
-#ifdef Q_OS_WASM
+#if QT_CONFIG(webhost)
     f->glDepthMask(GL_TRUE);
 #endif
 
@@ -1003,7 +1003,7 @@ void QOpenGLWidgetPrivate::invalidateFboBeforePainting()
             gl_color_attachment0,
             gl_depth_attachment,
             gl_stencil_attachment,
-#ifdef Q_OS_WASM
+#if QT_CONFIG(webhost)
             // webgl does not allow separate depth and stencil attachments
             // QTBUG-69913
             gl_depth_stencil_attachment
@@ -1022,7 +1022,7 @@ void QOpenGLWidgetPrivate::invalidateFboAfterPainting()
         const GLenum attachments[] = {
             gl_depth_attachment,
             gl_stencil_attachment,
-#ifdef Q_OS_WASM
+#if QT_CONFIG(webhost)
             // webgl does not allow separate depth and stencil attachments
             // QTBUG-69913
             gl_depth_stencil_attachment

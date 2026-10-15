@@ -1020,7 +1020,7 @@ bool QRhiGles2::create(QRhi::Flags flags)
         caps.fixedIndexPrimitiveRestart = caps.ctxMajor > 4 || (caps.ctxMajor == 4 && caps.ctxMinor >= 3); // 4.3
 
     if (caps.fixedIndexPrimitiveRestart) {
-#ifdef Q_OS_WASM
+#if QT_CONFIG(webhost)
         // WebGL 2 behaves as if GL_PRIMITIVE_RESTART_FIXED_INDEX was always
         // enabled (i.e. matching D3D/Metal), and the value cannot be passed to
         // glEnable, so skip the call.
@@ -1048,7 +1048,7 @@ bool QRhiGles2::create(QRhi::Flags flags)
     caps.rgb10Formats = caps.ctxMajor >= 3; // 3.0 or ES 3.0
     caps.depthTexture = caps.ctxMajor >= 3; // 3.0 or ES 3.0
     caps.packedDepthStencil = f->hasOpenGLExtension(QOpenGLExtensions::PackedDepthStencil);
-#ifdef Q_OS_WASM
+#if QT_CONFIG(webhost)
     caps.needsDepthStencilCombinedAttach = true;
 #else
     caps.needsDepthStencilCombinedAttach = false;

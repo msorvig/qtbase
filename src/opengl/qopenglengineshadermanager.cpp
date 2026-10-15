@@ -222,7 +222,7 @@ QOpenGLEngineSharedShaders::QOpenGLEngineSharedShaders(QOpenGLContext* context)
     QByteArray fragSource;
 
     // Compile up the simple shader:
-#ifdef Q_OS_WASM
+#if QT_CONFIG(webhost)
     vertexSource.append(qShaderSnippets[PositionOnlyVertexShader]);
     vertexSource.append(qShaderSnippets[MainVertexShader]);
 #else
@@ -354,7 +354,7 @@ QOpenGLEngineShaderProg *QOpenGLEngineSharedShaders::findProgramInCache(const QO
             fragSource.append(qShaderSnippets[prog.maskFragShader]);
 
         QByteArray vertexSource;
-#ifdef Q_OS_WASM
+#if QT_CONFIG(webhost)
         vertexSource.append(qShaderSnippets[prog.positionVertexShader]);
         vertexSource.append(qShaderSnippets[prog.mainVertexShader]);
 #else
