@@ -198,7 +198,7 @@ public:
     int tcpKeepAliveProbeCount() const;
     void setTcpKeepAliveProbeCount(int probes);
 
-#if QT_CONFIG(http) || defined (Q_OS_WASM)
+#if QT_CONFIG(http) || QT_CONFIG(webhost)
     QT_NETWORK_INLINE_SINCE(6, 8)
     int transferTimeout() const;
     QT_NETWORK_INLINE_SINCE(6, 8)
@@ -206,7 +206,7 @@ public:
 
     std::chrono::milliseconds transferTimeoutAsDuration() const;
     void setTransferTimeout(std::chrono::milliseconds duration = DefaultTransferTimeout);
-#endif // QT_CONFIG(http) || defined (Q_OS_WASM)
+#endif // QT_CONFIG(http) || QT_CONFIG(webhost)
 private:
     void doSetIdleTimeBeforeProbes(std::chrono::duration<int> idle);
     void doSetIntervalBetweenProbes(std::chrono::duration<int> interval);
@@ -217,7 +217,7 @@ private:
 Q_DECLARE_SHARED(QNetworkRequest)
 
 #if QT_NETWORK_INLINE_IMPL_SINCE(6, 8)
-#if QT_CONFIG(http) || defined (Q_OS_WASM)
+#if QT_CONFIG(http) || QT_CONFIG(webhost)
 int QNetworkRequest::transferTimeout() const
 {
     return q26::saturating_cast<int>(transferTimeoutAsDuration().count());
@@ -227,7 +227,7 @@ void QNetworkRequest::setTransferTimeout(int timeout)
 {
     setTransferTimeout(std::chrono::milliseconds(timeout));
 }
-#endif // QT_CONFIG(http) || defined (Q_OS_WASM)
+#endif // QT_CONFIG(http) || QT_CONFIG(webhost)
 #endif // INLINE_SINCE 6.8
 
 QT_END_NAMESPACE

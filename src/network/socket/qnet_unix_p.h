@@ -32,7 +32,7 @@
 #include <arpa/inet.h>
 #if defined(Q_OS_VXWORKS)
 #  include <hostLib.h>
-#else
+#elif !defined(Q_OS_WASI)
 #  include <resolv.h>
 #endif
 
@@ -108,12 +108,12 @@ static inline int qt_safe_listen(int s, int backlog)
 static inline int qt_safe_connect(int sockfd, const struct sockaddr *addr, QT_SOCKLEN_T addrlen)
 {
     int ret;
-#ifdef Q_OS_WASM
+#if defined(Q_OS_WASM) || defined(Q_OS_WASI)
     errno = 0;
 #endif
     // Solaris e.g. expects a non-const 2nd parameter
     QT_EINTR_LOOP(ret, QT_SOCKET_CONNECT(sockfd, const_cast<struct sockaddr *>(addr), addrlen));
-#ifdef Q_OS_WASM
+#if defined(Q_OS_WASM) || defined(Q_OS_WASI)
 // ::connect on wasm returns 0 when it shouldn't so use errno instead
    if (errno != 0)
        ret = -1;
@@ -133,12 +133,15 @@ static inline int qt_safe_connect(int sockfd, const struct sockaddr *addr, QT_SO
 # undef listen
 #endif
 
+#if !defined(Q_OS_WASI)
 template <typename T>
 static inline int qt_safe_ioctl(int sockfd, unsigned long request, T arg)
 {
     return ::ioctl(sockfd, request, arg);
 }
+#endif
 
+#if !defined(Q_OS_WASI)
 static inline int qt_safe_sendmsg(int sockfd, const struct msghdr *msg, int flags)
 {
 #ifdef MSG_NOSIGNAL
@@ -159,6 +162,7 @@ static inline int qt_safe_recvmsg(int sockfd, struct msghdr *msg, int flags)
     QT_EINTR_LOOP(ret, ::recvmsg(sockfd, msg, flags));
     return ret;
 }
+#endif
 
 QT_END_NAMESPACE
 

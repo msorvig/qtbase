@@ -26,7 +26,7 @@
 #include "private/qobject_p.h"
 #include <QtCore/qiodevice.h>
 
-#ifndef Q_OS_WASM
+#if !QT_CONFIG(webhost)
 QT_REQUIRE_CONFIG(http);
 #endif
 

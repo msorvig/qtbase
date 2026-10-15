@@ -38,12 +38,14 @@
 #include <qstylepainter.h>
 #include "ui_qfiledialog.h"
 #if defined(Q_OS_UNIX)
+#if !defined(Q_OS_WASI)
 #include <pwd.h>
+#endif
 #include <unistd.h> // for pathconf() on OS X
 #elif defined(Q_OS_WIN)
 #  include <QtCore/qt_windows.h>
 #endif
-#if defined(Q_OS_WASM)
+#if QT_CONFIG(webhost)
 #include <private/qwasmlocalfileaccess_p.h>
 #endif
 
@@ -1151,9 +1153,10 @@ void QFileDialog::selectUrl(const QUrl &url)
 }
 
 #ifdef Q_OS_UNIX
+#if !defined(Q_OS_WASI)
 static QString homeDirFromPasswdEntry(const QString &path, const QByteArray &userName)
 {
-#if defined(_POSIX_THREAD_SAFE_FUNCTIONS) && !defined(Q_OS_OPENBSD) && !defined(Q_OS_WASM)
+#if defined(_POSIX_THREAD_SAFE_FUNCTIONS) && !defined(Q_OS_OPENBSD) && !defined(Q_OS_WASM) && !defined(Q_OS_WASI)
     passwd pw;
     passwd *tmpPw;
     long bufSize = ::sysconf(_SC_GETPW_R_SIZE_MAX);
@@ -1174,8 +1177,9 @@ static QString homeDirFromPasswdEntry(const QString &path, const QByteArray &use
     if (!pw)
         return path;
     return QFile::decodeName(pw->pw_dir);
-#endif // defined(_POSIX_THREAD_SAFE_FUNCTIONS) && !defined(Q_OS_OPENBSD) && !defined(Q_OS_WASM)
+#endif // defined(_POSIX_THREAD_SAFE_FUNCTIONS) && !defined(Q_OS_OPENBSD) && !defined(Q_OS_WASM) && !defined(Q_OS_WASI)
 }
+#endif // !defined(Q_OS_WASI)
 
 Q_AUTOTEST_EXPORT QString qt_tildeExpansion(const QString &path)
 {
@@ -1190,7 +1194,7 @@ Q_AUTOTEST_EXPORT QString qt_tildeExpansion(const QString &path)
     if (sepIndex == 1) // '~/' or '~/a/b/c'
         return QDir::homePath() + sv.sliced(1);
 
-#if defined(Q_OS_VXWORKS) || defined(Q_OS_INTEGRITY)
+#if defined(Q_OS_VXWORKS) || defined(Q_OS_INTEGRITY) || defined(Q_OS_WASI)
     if (sepIndex == -1)
         return QDir::homePath();
     return QDir::homePath() + sv.sliced(sepIndex);
@@ -2315,7 +2319,7 @@ QList<QUrl> QFileDialog::getOpenFileUrls(QWidget *parent,
 */
 void QFileDialog::getOpenFileContent(const QString &nameFilter, const std::function<void(const QString &, const QByteArray &)> &fileOpenCompleted, QWidget *parent)
 {
-#ifdef Q_OS_WASM
+#if QT_CONFIG(webhost)
     Q_UNUSED(parent);
     auto openFileImpl = std::make_shared<std::function<void(void)>>();
     QString fileName;
@@ -2386,7 +2390,7 @@ void QFileDialog::getOpenFileContent(const QString &nameFilter, const std::funct
 */
 void QFileDialog::saveFileContent(const QByteArray &fileContent, const QString &fileNameHint, QWidget *parent)
 {
-#ifdef Q_OS_WASM
+#if QT_CONFIG(webhost)
     Q_UNUSED(parent);
     QWasmLocalFileAccess::saveFile(fileContent, fileNameHint.toStdString());
 #else

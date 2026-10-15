@@ -91,7 +91,7 @@ QStringList QLibraryPrivate::suffixes_sys(const QString &fullVersion)
 
 bool QLibraryPrivate::load_sys()
 {
-#if defined(Q_OS_WASM) && defined(QT_STATIC)
+#if (defined(Q_OS_WASM) || defined(Q_OS_WASI)) && defined(QT_STATIC)
     // emscripten does not support dlopen when using static linking
     return false;
 #endif

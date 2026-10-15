@@ -44,7 +44,7 @@ qt_feature("qmake" PRIVATE
         QT_FEATURE_datestring AND QT_FEATURE_regularexpression AND QT_FEATURE_temporaryfile)
 
 qt_feature("qtwaylandscanner" PRIVATE
-    CONDITION TARGET Wayland::Scanner AND NOT INTEGRITY AND NOT ANDROID AND NOT WASM AND NOT IOS AND NOT QNX AND NOT VXWORKS AND NOT OHOS
+    CONDITION TARGET Wayland::Scanner AND NOT INTEGRITY AND NOT ANDROID AND NOT WASM AND NOT WASI AND NOT IOS AND NOT QNX AND NOT VXWORKS AND NOT OHOS
 )
 
 qt_configure_add_summary_section(NAME "Core tools")

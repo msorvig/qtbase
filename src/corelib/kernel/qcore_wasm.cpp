@@ -6,9 +6,9 @@
 
 #include <emscripten/val.h>
 
-#if !defined(Q_OS_WASM)
-#error This is a wasm-only file.
-#endif // !defined(Q_OS_WASM)
+#if !QT_CONFIG(webhost)
+#error This file requires a web host.
+#endif
 
 QT_BEGIN_NAMESPACE
 

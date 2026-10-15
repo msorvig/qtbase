@@ -404,7 +404,7 @@ static int qt_gl_resolve_extensions()
                 | QOpenGLExtensions::StandardDerivatives
                 | QOpenGLExtensions::ETC2TextureCompression
                 | QOpenGLExtensions::HalfFloatVertex;
-#ifndef Q_OS_WASM
+#if !QT_CONFIG(webhost)
             // WebGL 2.0 specification explicitly does not support texture swizzles
             // https://registry.khronos.org/webgl/specs/latest/2.0/#5.19
             extensions |= QOpenGLExtensions::TextureSwizzle;

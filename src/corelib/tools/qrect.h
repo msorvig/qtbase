@@ -11,6 +11,10 @@
 #include <QtCore/qsize.h>
 #include <QtCore/qpoint.h>
 
+#if QT_CONFIG(webhost) && !defined(Q_QDOC)
+#  include <emscripten/val.h>
+#endif
+
 #ifdef topLeft
 #error qrect.h must be included before any header file that defines topLeft
 #endif
@@ -631,7 +635,7 @@ public:
     [[nodiscard]] CGRect toCGRect() const noexcept;
 #endif
 
-#if defined(Q_OS_WASM) || defined(Q_QDOC)
+#if QT_CONFIG(webhost) || defined(Q_QDOC)
     [[nodiscard]] static QRectF fromDOMRect(emscripten::val domRect);
     [[nodiscard]] emscripten::val toDOMRect() const;
 #endif

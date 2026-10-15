@@ -238,9 +238,8 @@ void QWasmScreen::setGeometry(const QRect &rect)
 
 void QWasmScreen::updateQScreenSize()
 {
-    double css_width;
-    double css_height;
-    emscripten_get_element_css_size(outerScreenId().toUtf8().constData(), &css_width, &css_height);
+    double css_width = m_container["clientWidth"].as<double>();
+    double css_height = m_container["clientHeight"].as<double>();
     QSizeF cssSize(css_width, css_height);
     // A hidden container reports 0x0, keep the last laid out size.
     if (cssSize.isNull())

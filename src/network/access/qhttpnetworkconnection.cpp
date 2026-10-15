@@ -255,7 +255,7 @@ void QHttpNetworkConnectionPrivate::prepareRequest(HttpMessagePair &messagePair)
 
     // add missing fields for the request
     QByteArray value;
-#ifndef Q_OS_WASM
+#if !QT_CONFIG(webhost)
     // check if Content-Length is provided
     QNonContiguousByteDevice* uploadByteDevice = request.uploadByteDevice();
     if (uploadByteDevice) {

@@ -3393,7 +3393,7 @@ void *QWindow::resolveInterface(const char *name, int revision) const
     QT_NATIVE_INTERFACE_RETURN_IF(QWaylandWindow, platformWindow);
 #endif
 
-#if defined(Q_OS_WASM)
+#if QT_CONFIG(webhost)
     QT_NATIVE_INTERFACE_RETURN_IF(QWasmWindow, platformWindow);
 #endif
 

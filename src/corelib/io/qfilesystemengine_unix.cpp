@@ -20,10 +20,16 @@
 # include <QtCore/private/qtemporaryfile_p.h>
 #endif // QT_BOOTSTRAPPED
 
+#if !defined(Q_OS_WASI)
 #include <grp.h>
 #include <pwd.h>
+#endif
 #include <stdlib.h> // for realpath()
 #include <unistd.h>
+#if defined(Q_OS_WASI)
+// WASI lacks user/group identity
+static inline uid_t getuid() { return 0; }
+#endif
 #include <stdio.h>
 #include <errno.h>
 
@@ -897,7 +903,7 @@ QString QFileSystemEngine::resolveUserName(uint userId)
     QVarLengthArray<char, 1024> buf(size_max);
 #endif
 
-#if !defined(Q_OS_INTEGRITY) && !defined(Q_OS_WASM)
+#if !defined(Q_OS_INTEGRITY) && !defined(Q_OS_WASM) && !defined(Q_OS_WASI)
     struct passwd *pw = nullptr;
 #if QT_CONFIG(thread) && defined(_POSIX_THREAD_SAFE_FUNCTIONS) && !defined(Q_OS_OPENBSD) && !defined(Q_OS_VXWORKS)
     struct passwd entry;
@@ -923,7 +929,7 @@ QString QFileSystemEngine::resolveGroupName(uint groupId)
     QVarLengthArray<char, 1024> buf(size_max);
 #endif
 
-#if !defined(Q_OS_INTEGRITY) && !defined(Q_OS_WASM)
+#if !defined(Q_OS_INTEGRITY) && !defined(Q_OS_WASM) && !defined(Q_OS_WASI)
     struct group *gr = nullptr;
 #if QT_CONFIG(thread) && defined(_POSIX_THREAD_SAFE_FUNCTIONS) && !defined(Q_OS_OPENBSD) && !defined(Q_OS_VXWORKS) && (!defined(Q_OS_ANDROID) || defined(Q_OS_ANDROID) && (__ANDROID_API__ >= 24))
     size_max = sysconf(_SC_GETGR_R_SIZE_MAX);
@@ -1328,7 +1334,7 @@ auto QFileSystemEngine::cloneFile(int srcfd, int dstfd, const QFileSystemMetaDat
 
 static QSystemError createDirectoryWithParents(const QByteArray &path, mode_t mode)
 {
-#ifdef Q_OS_WASM
+#if defined(Q_OS_WASM) || defined(Q_OS_WASI)
     if (path == "/")
         return {};
 #endif

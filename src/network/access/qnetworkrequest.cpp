@@ -1153,7 +1153,7 @@ void QNetworkRequest::setTcpKeepAliveProbeCount(int probes)
     d->probeCount = probes;
 }
 
-#if QT_CONFIG(http) || defined (Q_OS_WASM)
+#if QT_CONFIG(http) || QT_CONFIG(webhost)
 /*!
     \fn int QNetworkRequest::transferTimeout() const
     \since 5.15
@@ -1209,7 +1209,7 @@ void QNetworkRequest::setTransferTimeout(std::chrono::milliseconds duration)
 {
     d->transferTimeout = duration;
 }
-#endif // QT_CONFIG(http) || defined (Q_OS_WASM)
+#endif // QT_CONFIG(http) || QT_CONFIG(webhost)
 
 namespace  {
 

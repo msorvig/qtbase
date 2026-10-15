@@ -213,11 +213,11 @@ asm(
 );
 #  endif
 
-#  if defined(Q_CC_GNU) && !defined(Q_OS_WASM)
+#  if defined(Q_CC_GNU) && !defined(Q_PROCESSOR_WASM)
 // GCC 4.4 and Clang 2.8 added a few more intrinsics there
 #    include <x86intrin.h>
 #  endif
-#ifdef Q_OS_WASM
+#ifdef Q_PROCESSOR_WASM
 #   include <immintrin.h>
 # endif
 
