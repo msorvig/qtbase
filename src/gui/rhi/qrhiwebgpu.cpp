@@ -415,7 +415,13 @@ bool QWebGPUTexture::create()
             viewDesc.arrayLayerCount = 6;
         } else if (isArray) {
             viewDesc.dimension = WGPUTextureViewDimension_2DArray;
-            viewDesc.arrayLayerCount = uint32_t(m_arraySize);
+            if (m_arrayRangeStart >= 0 && m_arrayRangeLength >= 0) {
+                // Shaders see only this range of layers.
+                viewDesc.baseArrayLayer = uint32_t(m_arrayRangeStart);
+                viewDesc.arrayLayerCount = uint32_t(m_arrayRangeLength);
+            } else {
+                viewDesc.arrayLayerCount = uint32_t(m_arraySize);
+            }
         } else {
             viewDesc.dimension = WGPUTextureViewDimension_3D;
             viewDesc.arrayLayerCount = 1;
@@ -2653,6 +2659,7 @@ bool QRhiWebGPU::isFeatureSupported(QRhi::Feature feature) const
     case QRhi::PerRenderTargetBlending:
     case QRhi::HalfAttributes:
     case QRhi::TextureViewFormat:
+    case QRhi::TextureArrayRange:
         return true;
     case QRhi::Timestamps:
         return caps.hasTimestampQuery;
