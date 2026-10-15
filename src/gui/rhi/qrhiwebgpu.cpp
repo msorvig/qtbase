@@ -2631,6 +2631,7 @@ bool QRhiWebGPU::isFeatureSupported(QRhi::Feature feature) const
     case QRhi::BufferToBufferCopy:
     case QRhi::ReadBackNonUniformBuffer:
     case QRhi::PerRenderTargetBlending:
+    case QRhi::HalfAttributes:
         return true;
     case QRhi::Timestamps:
         return caps.hasTimestampQuery;
@@ -4270,8 +4271,16 @@ WGPUVertexFormat QRhiWebGPU::toWgpuVertexFormat(QRhiVertexInputAttribute::Format
         return WGPUVertexFormat_Sint32;
     case QRhiVertexInputAttribute::Half4:
         return WGPUVertexFormat_Float16x4;
+    // There is no float16x3: read four halves, the shader ignores the last
+    // one. As with D3D, the attribute then needs 8 bytes in the vertex
+    // (WebGPU validates offset + 8 <= stride), so a tightly packed half3 with
+    // a 6 byte stride is rejected at pipeline creation.
+    case QRhiVertexInputAttribute::Half3:
+        return WGPUVertexFormat_Float16x4;
     case QRhiVertexInputAttribute::Half2:
         return WGPUVertexFormat_Float16x2;
+    case QRhiVertexInputAttribute::Half:
+        return WGPUVertexFormat_Float16;
     default:
         return WGPUVertexFormat_Float32x4;
     }
