@@ -110,6 +110,8 @@ bool QWebGPUBuffer::create()
         usage |= WGPUBufferUsage_Uniform;
     if (m_usage.testFlag(QRhiBuffer::StorageBuffer))
         usage |= WGPUBufferUsage_Storage;
+    if (m_usage.testFlag(QRhiBuffer::IndirectBuffer))
+        usage |= WGPUBufferUsage_Indirect;
 
     WGPUBufferDescriptor desc = WGPU_BUFFER_DESCRIPTOR_INIT;
     desc.size = roundedSize;
@@ -2632,9 +2634,17 @@ bool QRhiWebGPU::isFeatureSupported(QRhi::Feature feature) const
         return true;
     case QRhi::Timestamps:
         return caps.hasTimestampQuery;
+    case QRhi::DrawIndirect:
+    case QRhi::DispatchIndirect:
+        return true;
     case QRhi::NonFourAlignedEffectiveIndexBufferOffset:
     case QRhi::WideLines:
     case QRhi::VertexShaderPointSize:
+    // No multi-draw-indirect or count buffer in WebGPU core, and WGSL has no
+    // draw index builtin.
+    case QRhi::DrawIndirectMulti:
+    case QRhi::ShaderDrawParameters:
+    case QRhi::DrawIndirectCount:
         return false;
     default:
         return false;
@@ -3790,26 +3800,28 @@ void QRhiWebGPU::drawIndexed(QRhiCommandBuffer *cb, quint32 indexCount,
                                            firstIndex, vertexOffset, firstInstance);
 }
 
+// WebGPU core has no multi-draw-indirect: a drawCount > 1 is recorded as one
+// indirect draw per command (QRhi::DrawIndirectMulti is not reported).
 void QRhiWebGPU::drawIndirect(QRhiCommandBuffer *cb, QRhiBuffer *indirectBuffer,
                                quint32 offset, quint32 drawCount, quint32 stride)
 {
-    Q_UNUSED(cb);
-    Q_UNUSED(indirectBuffer);
-    Q_UNUSED(offset);
-    Q_UNUSED(drawCount);
-    Q_UNUSED(stride);
-    qWarning("QRhiWebGPU::drawIndirect: not implemented");
+    QWebGPUCommandBuffer *cbD = QRHI_RES(QWebGPUCommandBuffer, cb);
+    Q_ASSERT(cbD->recordingPass == QWebGPUCommandBuffer::RenderPass);
+    WGPUBuffer buf = QRHI_RES(QWebGPUBuffer, indirectBuffer)->buffer;
+    qCDebug(lcWebGPU, "QRhiWebGPU::drawIndirect offset=%u drawCount=%u stride=%u", offset, drawCount, stride);
+    for (quint32 i = 0; i < drawCount; ++i)
+        wgpuRenderPassEncoderDrawIndirect(cbD->renderPassEncoder, buf, quint64(offset) + quint64(i) * stride);
 }
 
 void QRhiWebGPU::drawIndexedIndirect(QRhiCommandBuffer *cb, QRhiBuffer *indirectBuffer,
                                       quint32 offset, quint32 drawCount, quint32 stride)
 {
-    Q_UNUSED(cb);
-    Q_UNUSED(indirectBuffer);
-    Q_UNUSED(offset);
-    Q_UNUSED(drawCount);
-    Q_UNUSED(stride);
-    qWarning("QRhiWebGPU::drawIndexedIndirect: not implemented");
+    QWebGPUCommandBuffer *cbD = QRHI_RES(QWebGPUCommandBuffer, cb);
+    Q_ASSERT(cbD->recordingPass == QWebGPUCommandBuffer::RenderPass);
+    WGPUBuffer buf = QRHI_RES(QWebGPUBuffer, indirectBuffer)->buffer;
+    qCDebug(lcWebGPU, "QRhiWebGPU::drawIndexedIndirect offset=%u drawCount=%u stride=%u", offset, drawCount, stride);
+    for (quint32 i = 0; i < drawCount; ++i)
+        wgpuRenderPassEncoderDrawIndexedIndirect(cbD->renderPassEncoder, buf, quint64(offset) + quint64(i) * stride);
 }
 
 void QRhiWebGPU::drawIndirectCount(QRhiCommandBuffer *cb,
@@ -3845,10 +3857,11 @@ void QRhiWebGPU::drawIndexedIndirectCount(QRhiCommandBuffer *cb,
 void QRhiWebGPU::dispatchIndirect(QRhiCommandBuffer *cb, QRhiBuffer *indirectBuffer,
                                    quint32 offset)
 {
-    Q_UNUSED(cb);
-    Q_UNUSED(indirectBuffer);
-    Q_UNUSED(offset);
-    qWarning("QRhiWebGPU::dispatchIndirect: not implemented");
+    QWebGPUCommandBuffer *cbD = QRHI_RES(QWebGPUCommandBuffer, cb);
+    Q_ASSERT(cbD->recordingPass == QWebGPUCommandBuffer::ComputePass);
+    qCDebug(lcWebGPU, "QRhiWebGPU::dispatchIndirect() offset=%u", offset);
+    wgpuComputePassEncoderDispatchWorkgroupsIndirect(cbD->computePassEncoder,
+                                                     QRHI_RES(QWebGPUBuffer, indirectBuffer)->buffer, offset);
 }
 
 void QRhiWebGPU::debugMarkBegin(QRhiCommandBuffer *cb, const QByteArray &name)
