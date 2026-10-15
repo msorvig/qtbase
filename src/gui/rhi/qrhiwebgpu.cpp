@@ -3186,6 +3186,23 @@ void QRhiWebGPU::enqueueResourceUpdates(QRhiCommandBuffer *cb, QRhiResourceUpdat
             wgpuQueueSubmit(queue, 1, &cmdBuf);
             wgpuCommandBufferRelease(cmdBuf);
             wgpuCommandEncoderRelease(enc);
+        } else if (u.type == QRhiResourceUpdateBatchPrivate::BufferOp::Clear) {
+            // The offset and size are multiples of 4 (checked by the frontend).
+            QWebGPUBuffer *bufD = QRHI_RES(QWebGPUBuffer, u.buf);
+            // Keep the shadow copy, used for widening unaligned uploads, in sync.
+            memset(bufD->stagingData + u.offset, u.fillValue, u.readSize);
+            if (u.fillValue == 0) {
+                WGPUCommandEncoder enc = wgpuDeviceCreateCommandEncoder(device, nullptr);
+                wgpuCommandEncoderClearBuffer(enc, bufD->buffer, u.offset, u.readSize);
+                WGPUCommandBuffer cmdBuf = wgpuCommandEncoderFinish(enc, nullptr);
+                wgpuQueueSubmit(queue, 1, &cmdBuf);
+                wgpuCommandBufferRelease(cmdBuf);
+                wgpuCommandEncoderRelease(enc);
+            } else {
+                // WebGPU only clears to zero: write the filled bytes instead.
+                wgpuQueueWriteBuffer(queue, bufD->buffer, u.offset,
+                                     bufD->stagingData + u.offset, u.readSize);
+            }
         }
     }
 
