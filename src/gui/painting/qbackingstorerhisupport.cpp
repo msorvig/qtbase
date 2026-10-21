@@ -140,6 +140,11 @@ bool QBackingStoreRhiSupport::create()
     }
 #endif
 
+    if (!rhi && m_config.api() == QPlatformBackingStoreRhiConfig::WebGPU) {
+        QRhiWebGPUInitParams params;
+        rhi = QRhi::create(QRhi::WebGPU, &params, flags);
+    }
+
     if (!rhi) {
         qWarning("Failed to create QRhi for QBackingStoreRhiSupport");
         delete surface;
@@ -228,6 +233,17 @@ QSurface::SurfaceType QBackingStoreRhiSupport::surfaceTypeForConfig(const QPlatf
     case QPlatformBackingStoreRhiConfig::OpenGL:
         type = QSurface::OpenGLSurface;
         break;
+    case QPlatformBackingStoreRhiConfig::WebGPU:
+        // Same as Qt Quick: the WebGPU surface is created from the native
+        // window (HWND, CAMetalLayer) or, on WebAssembly, from the canvas.
+#if defined(Q_OS_WIN)
+        type = QSurface::Direct3DSurface;
+#elif defined(Q_OS_APPLE)
+        type = QSurface::MetalSurface;
+#else
+        type = QSurface::OpenGLSurface;
+#endif
+        break;
     default:
         break;
     }
@@ -247,6 +263,8 @@ QRhi::Implementation QBackingStoreRhiSupport::apiToRhiBackend(QPlatformBackingSt
         return QRhi::D3D11;
     case QPlatformBackingStoreRhiConfig::D3D12:
         return QRhi::D3D12;
+    case QPlatformBackingStoreRhiConfig::WebGPU:
+        return QRhi::WebGPU;
     case QPlatformBackingStoreRhiConfig::Null:
         return QRhi::Null;
     default:
@@ -306,6 +324,8 @@ bool QBackingStoreRhiSupport::checkForceRhi(QPlatformBackingStoreRhiConfig *outC
                 if (backend == QStringLiteral("vulkan"))
                     config.setApi(QPlatformBackingStoreRhiConfig::Vulkan);
 #endif
+                if (backend == QStringLiteral("webgpu"))
+                    config.setApi(QPlatformBackingStoreRhiConfig::WebGPU);
             }
 
             if (qEnvironmentVariableIntValue("QT_WIDGETS_RHI_DEBUG_LAYER"))

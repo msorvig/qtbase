@@ -99,6 +99,7 @@ public:
     QWasmBackingStore *backingStore() const { return m_backingStore; }
 
     std::string canvasSelector() const;
+    void updateCanvasSize();
 
     emscripten::val context2d() const { return m_context2d; }
     emscripten::val a11yContainer() const { return m_a11yContainer; }
@@ -126,6 +127,8 @@ public slots:
 private:
     friend class QWasmScreen;
     static constexpr auto defaultWindowSize = 160;
+
+    void updateCanvasSize(const QSize &clientAreaSize);
 
     QMetaObject::Connection m_transientWindowChangedConnection;
     QMetaObject::Connection m_modalityChangedConnection;

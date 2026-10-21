@@ -182,6 +182,26 @@ struct Q_GUI_EXPORT QRhiMetalCommandBufferNativeHandles : public QRhiNativeHandl
 
 #endif // MACOS/IOS/QDOC
 
+#if QT_CONFIG(webgpu) || defined(Q_QDOC)
+
+struct Q_GUI_EXPORT QRhiWebGPUInitParams : public QRhiInitParams
+{
+};
+
+struct Q_GUI_EXPORT QRhiWebGPUNativeHandles : public QRhiNativeHandles
+{
+    // to import an existing WebGPU device
+    void *device = nullptr;
+    void *queue = nullptr;
+};
+
+struct Q_GUI_EXPORT QRhiWebGPUCommandBufferNativeHandles : public QRhiNativeHandles
+{
+    void *commandEncoder = nullptr;
+};
+
+#endif // webgpu/qdoc
+
 QT_END_NAMESPACE
 
 #endif

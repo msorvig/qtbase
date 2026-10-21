@@ -36,6 +36,8 @@ int main(int argc, char **argv)
     cmdLineParser.addOption(d3d12Option);
     QCommandLineOption mtlOption({ "m", "metal" }, QLatin1String("Metal"));
     cmdLineParser.addOption(mtlOption);
+    QCommandLineOption webgpuOption({ "w", "webgpu" }, QLatin1String("WebGPU"));
+    cmdLineParser.addOption(webgpuOption);
 
     cmdLineParser.process(app);
     if (cmdLineParser.isSet(nullOption))
@@ -50,6 +52,8 @@ int main(int argc, char **argv)
         graphicsApi = QRhi::D3D12;
     if (cmdLineParser.isSet(mtlOption))
         graphicsApi = QRhi::Metal;
+    if (cmdLineParser.isSet(webgpuOption))
+        graphicsApi = QRhi::WebGPU;
 
  //! [api-setup]
     // For OpenGL, to ensure there is a depth/stencil buffer for the window.
