@@ -147,6 +147,7 @@ QT_BEGIN_NAMESPACE
     \value Vulkan
     \value Direct3D11
     \value Direct3D12
+    \value [since 6.13] WebGPU
 
     \sa QRhi
  */
@@ -714,6 +715,8 @@ QRhiWidget::Api QRhiWidget::api() const
         return Api::Direct3D11;
     case QPlatformBackingStoreRhiConfig::D3D12:
         return Api::Direct3D12;
+    case QPlatformBackingStoreRhiConfig::WebGPU:
+        return Api::WebGPU;
     case QPlatformBackingStoreRhiConfig::Null:
         return Api::Null;
     }
@@ -756,6 +759,9 @@ void QRhiWidget::setApi(Api api)
         break;
     case Api::Direct3D12:
         d->config.setApi(QPlatformBackingStoreRhiConfig::D3D12);
+        break;
+    case Api::WebGPU:
+        d->config.setApi(QPlatformBackingStoreRhiConfig::WebGPU);
         break;
     case Api::Null:
         d->config.setApi(QPlatformBackingStoreRhiConfig::Null);
