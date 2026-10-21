@@ -109,12 +109,21 @@ qt_internal_extend_target(Network CONDITION APPLE
         ${FWSecurity}
 )
 
-qt_internal_extend_target(Network CONDITION WASM
+qt_internal_extend_target(Network CONDITION QT_FEATURE_webhost
     SOURCES
         access/qformdatabuilder.cpp access/qformdatabuilder.h
         access/qhttpmultipart.cpp access/qhttpmultipart.h access/qhttpmultipart_p.h
         access/qhttpnetworkheader.cpp access/qhttpnetworkheader_p.h
+)
+
+qt_internal_extend_target(Network CONDITION WASM
+    SOURCES
         access/qnetworkreplywasmimpl.cpp access/qnetworkreplywasmimpl_p.h
+)
+
+qt_internal_extend_target(Network CONDITION WASI AND QT_FEATURE_webhost
+    SOURCES
+        access/qnetworkreplywebimpl.cpp access/qnetworkreplywebimpl_p.h
 )
 
 qt_internal_extend_target(Network CONDITION QT_FEATURE_http
@@ -193,7 +202,7 @@ qt_internal_extend_target(Network CONDITION QT_FEATURE_dnslookup
         kernel/qdnslookup.cpp kernel/qdnslookup.h kernel/qdnslookup_p.h
 )
 
-qt_internal_extend_target(Network CONDITION UNIX
+qt_internal_extend_target(Network CONDITION UNIX AND NOT WASI
     SOURCES
         kernel/qhostinfo_unix.cpp
         socket/qnativesocketengine_unix.cpp
@@ -205,7 +214,7 @@ qt_internal_extend_target(Network CONDITION QT_FEATURE_linux_netlink AND UNIX
         kernel/qnetworkinterface_linux.cpp
 )
 
-qt_internal_extend_target(Network CONDITION UNIX AND NOT QT_FEATURE_linux_netlink
+qt_internal_extend_target(Network CONDITION UNIX AND NOT QT_FEATURE_linux_netlink AND NOT WASI
     SOURCES
         kernel/qnetworkinterface_unix.cpp
 )
@@ -352,7 +361,7 @@ qt_internal_extend_target(Network CONDITION INTEGRITY AND QT_FEATURE_localserver
         QT_LOCALSOCKET_TCP
 )
 
-qt_internal_extend_target(Network CONDITION QT_FEATURE_localserver AND UNIX AND NOT INTEGRITY
+qt_internal_extend_target(Network CONDITION QT_FEATURE_localserver AND UNIX AND NOT INTEGRITY AND NOT WASI
     SOURCES
         socket/qlocalserver_unix.cpp
         socket/qlocalsocket_unix.cpp

@@ -25,7 +25,7 @@
 #  include <unistd.h>
 #  include <netdb.h>
 #  include <netinet/in.h>
-#  if defined(AI_ADDRCONFIG) && !defined(Q_OS_WASM)
+#  if defined(AI_ADDRCONFIG) && !defined(Q_OS_WASM) && !defined(Q_OS_WASI)
 #    define Q_ADDRCONFIG          AI_ADDRCONFIG
 #  endif
 #elif defined Q_OS_WIN
@@ -345,7 +345,7 @@ QHostInfo QHostInfo::fromName(const QString &name)
     qDebug("QHostInfo::fromName(\"%s\")",name.toLatin1().constData());
 #endif
 
-#ifdef Q_OS_WASM
+#if defined(Q_OS_WASM) || defined(Q_OS_WASI)
     return QHostInfoAgent::lookup(name);
 #else
     QHostInfo hostInfo = QHostInfoAgent::fromName(name);
@@ -779,7 +779,7 @@ int QHostInfo::lookupHostImpl(const QString &name,
         return id;
     }
 
-#ifdef Q_OS_WASM
+#if defined(Q_OS_WASM) || defined(Q_OS_WASI)
     // Resolve the host name directly without using a thread or cache,
     // since Emscripten's host lookup is fast. Emscripten maintains an internal
     // mapping of hosts and addresses for the purposes of WebSocket socket
@@ -822,7 +822,7 @@ int QHostInfo::lookupHostImpl(const QString &name,
         }
         manager->scheduleLookup(runnable);
     }
-#endif // Q_OS_WASM
+#endif // Q_OS_WASM || Q_OS_WASI
     return id;
 }
 

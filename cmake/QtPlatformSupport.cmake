@@ -61,6 +61,15 @@ else()
     set(WASM 0)
 endif()
 
+if(CMAKE_SYSTEM_NAME STREQUAL "WASI")
+    set(WASI 1)
+    # WASI is Unix-like (POSIX subset). CMake doesn't recognize it as Unix
+    # automatically, so we set UNIX here so that Qt's Unix source files are included.
+    set(UNIX 1)
+else()
+    set(WASI 0)
+endif()
+
 if(QT_QMAKE_TARGET_MKSPEC STREQUAL "wasm-emscripten-64")
     set(WASM64 1)
 else()

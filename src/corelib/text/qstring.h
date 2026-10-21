@@ -24,6 +24,10 @@
 #include <QtCore/qanystringview.h>
 #include <QtCore/qstringtokenizer.h>
 
+#if QT_CONFIG(webhost) && !defined(Q_QDOC)
+#  include <emscripten/val.h>
+#endif
+
 #include <string>
 #include <iterator>
 #include <QtCore/q20memory.h>
@@ -1133,7 +1137,7 @@ public:
     NSString *toNSString() const Q_DECL_NS_RETURNS_AUTORELEASED;
 #endif
 
-#if defined(Q_OS_WASM) || defined(Q_QDOC)
+#if QT_CONFIG(webhost) || defined(Q_QDOC)
     static QString fromEcmaString(emscripten::val jsString);
     emscripten::val toEcmaString() const;
 #endif

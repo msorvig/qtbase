@@ -96,9 +96,11 @@
 #include <time.h>
 #include <sys/mman.h>
 #include <sys/uio.h>
+#if !defined(Q_OS_WASI)
 #include <sys/wait.h>
+#endif
 #include <unistd.h>
-# if !defined(Q_OS_INTEGRITY)
+# if !defined(Q_OS_INTEGRITY) && !defined(Q_OS_WASI)
 #  include <sys/resource.h>
 # endif
 #endif

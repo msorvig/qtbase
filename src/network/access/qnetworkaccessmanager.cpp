@@ -58,6 +58,11 @@
 #endif
 #ifdef Q_OS_WASM
 #include "qnetworkreplywasmimpl_p.h"
+#endif
+#if defined(Q_OS_WASI) && QT_CONFIG(webhost)
+#include "qnetworkreplywebimpl_p.h"
+#endif
+#if QT_CONFIG(webhost)
 #include "qhttpmultipart.h"
 #include "qhttpmultipart_p.h"
 #endif
@@ -899,7 +904,7 @@ QNetworkReply *QNetworkAccessManager::post(const QNetworkRequest &request, const
     a new QNetworkReply object.
 */
 
-#if QT_CONFIG(http) || defined(Q_OS_WASM)
+#if QT_CONFIG(http) || QT_CONFIG(webhost)
 /*!
     \since 4.8
 
@@ -1177,7 +1182,7 @@ QNetworkReply *QNetworkAccessManager::sendCustomRequest(const QNetworkRequest &r
     return reply;
 }
 
-#if QT_CONFIG(http) || defined(Q_OS_WASM)
+#if QT_CONFIG(http) || QT_CONFIG(webhost)
 /*!
     \since 5.8
 
@@ -1226,7 +1231,7 @@ QNetworkReply *QNetworkAccessManager::createRequest(QNetworkAccessManager::Opera
         req.setAttribute(QNetworkRequest::RedirectPolicyAttribute, redirectPolicy());
     }
 
-#if QT_CONFIG(http) || defined (Q_OS_WASM)
+#if QT_CONFIG(http) || QT_CONFIG(webhost)
     if (req.transferTimeoutAsDuration() == 0ms)
         req.setTransferTimeout(transferTimeoutAsDuration());
 #endif
@@ -1282,7 +1287,7 @@ QNetworkReply *QNetworkAccessManager::createRequest(QNetworkAccessManager::Opera
     }
     QNetworkRequest request = req;
     auto h = request.headers();
-#ifndef Q_OS_WASM // Content-length header is not allowed to be set by user in wasm
+#if !QT_CONFIG(webhost) // Content-length header is not allowed to be set by user in a web host
     if (!h.contains(QHttpHeaders::WellKnownHeader::ContentLength) &&
         outgoingData && !outgoingData->isSequential() && outgoingData->size()) {
         // request has no Content-Length
@@ -1308,6 +1313,16 @@ QNetworkReply *QNetworkAccessManager::createRequest(QNetworkAccessManager::Opera
     if (scheme == "http"_L1 || scheme == "https"_L1 || scheme.isEmpty()) {
         QNetworkReplyWasmImpl *reply = new QNetworkReplyWasmImpl(this);
         QNetworkReplyWasmImplPrivate *priv = reply->d_func();
+        priv->manager = this;
+        priv->setup(op, request, outgoingData);
+        return reply;
+    }
+#elif QT_CONFIG(webhost)
+    Q_UNUSED(isLocalFile);
+    // Support http, https, and relative urls via JavaScript fetch() API
+    if (scheme == "http"_L1 || scheme == "https"_L1 || scheme.isEmpty()) {
+        QNetworkReplyWebImpl *reply = new QNetworkReplyWebImpl(this);
+        QNetworkReplyWebImplPrivate *priv = reply->d_func();
         priv->manager = this;
         priv->setup(op, request, outgoingData);
         return reply;
@@ -1775,7 +1790,7 @@ void QNetworkAccessManagerPrivate::destroyThread()
 }
 
 
-#if QT_CONFIG(http) || defined(Q_OS_WASM)
+#if QT_CONFIG(http) || QT_CONFIG(webhost)
 
 QNetworkRequest QNetworkAccessManagerPrivate::prepareMultipart(const QNetworkRequest &request, QHttpMultiPart *multiPart)
 {

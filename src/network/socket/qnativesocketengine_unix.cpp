@@ -1457,7 +1457,7 @@ qint64 QNativeSocketEnginePrivate::nativeRead(char *data, qint64 maxSize)
     return qint64(r);
 }
 
-#ifndef Q_OS_WASM
+#if !defined(Q_OS_WASM) && !defined(Q_OS_WASI)
 
 int QNativeSocketEnginePrivate::nativeSelect(QDeadlineTimer deadline, bool checkRead,
                                              bool checkWrite, bool *selectForRead,
@@ -1511,6 +1511,6 @@ int QNativeSocketEnginePrivate::nativeSelect(QDeadlineTimer deadline, bool check
     return 1;
 }
 
-#endif // Q_OS_WASM
+#endif // !Q_OS_WASM && !Q_OS_WASI
 
 QT_END_NAMESPACE

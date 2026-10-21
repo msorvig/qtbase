@@ -4,7 +4,14 @@
 
 #include "qlocale_p.h"
 
+#ifdef Q_OS_WASM
 #include <emscripten.h>
+#else
+#include <emscripten/val.h>
+
+#include <string>
+#include <vector>
+#endif
 
 QT_BEGIN_NAMESPACE
 
@@ -14,6 +21,7 @@ namespace {
 
 QStringList navigatorLanguages()
 {
+#ifdef Q_OS_WASM
     // Read navigator.languages using EM_ASM_PTR instead of emscripten::val. The
     // latter does not support being used from static constructors (emscripten #23170)
     char *joined = reinterpret_cast<char *>(EM_ASM_PTR({
@@ -23,6 +31,15 @@ QStringList navigatorLanguages()
             QString::fromUtf8(joined).split(u'\n', Qt::SkipEmptyParts);
     free(joined);
     return qtLanguages;
+#else
+    using emscripten::val;
+    const val navigator = val::global("navigator");
+    const auto languages = emscripten::vecFromJSArray<std::string>(navigator["languages"]);
+    QStringList qtLanguages;
+    for (const std::string &language : languages)
+        qtLanguages.append(QString::fromStdString(language));
+    return qtLanguages;
+#endif
 }
 
 }

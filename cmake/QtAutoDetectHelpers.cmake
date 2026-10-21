@@ -64,6 +64,72 @@ function(qt_auto_detect_wasm)
     endif()
 endfunction()
 
+function(qt_auto_detect_wasi)
+    if("${QT_QMAKE_TARGET_MKSPEC}" STREQUAL "wasm-wasi")
+        # Find WASI SDK
+        if(DEFINED ENV{WASI_SDK_PREFIX})
+            set(wasi_sdk "$ENV{WASI_SDK_PREFIX}")
+        elseif(DEFINED WASI_SDK_PREFIX)
+            set(wasi_sdk "${WASI_SDK_PREFIX}")
+        endif()
+
+        if(NOT DEFINED QT_AUTODETECT_WASI_IS_DONE)
+            if(NOT DEFINED BUILD_SHARED_LIBS)
+                qt_internal_ensure_static_qt_config()
+            endif()
+
+            # Find toolchain file
+            if(NOT DEFINED CMAKE_TOOLCHAIN_FILE AND wasi_sdk)
+                set(wasi_toolchain_file "${wasi_sdk}/share/cmake/wasi-sdk-p2.cmake")
+                if(EXISTS "${wasi_toolchain_file}")
+                    set(CMAKE_TOOLCHAIN_FILE "${wasi_toolchain_file}" CACHE STRING "" FORCE)
+                    message(STATUS "WASI SDK toolchain file detected at ${CMAKE_TOOLCHAIN_FILE}")
+                else()
+                    message(FATAL_ERROR
+                        "WASI SDK toolchain file not found at ${wasi_toolchain_file}. "
+                        "Make sure WASI_SDK_PREFIX points to a valid wasi-sdk installation.")
+                endif()
+            endif()
+
+            # Prevent finding host system libraries during cross-compilation.
+            # The wasi-sdk toolchain sets CMAKE_FIND_ROOT_PATH_MODE_* to ONLY,
+            # but doesn't set CMAKE_FIND_ROOT_PATH, so the restriction has no effect.
+            # Set it to the WASI sysroot so find_path/find_library only search there.
+            if(wasi_sdk)
+                set(CMAKE_FIND_ROOT_PATH "${wasi_sdk}/share/wasi-sysroot" CACHE STRING "" FORCE)
+            endif()
+
+            set(QT_AUTODETECT_WASI_IS_DONE TRUE CACHE BOOL "")
+        else()
+            message(STATUS
+                "Reusing cached WASI toolchain file detected at ${CMAKE_TOOLCHAIN_FILE}")
+        endif()
+
+        # Make pkg-config search only the WASI sysroot. Environment changes are not
+        # cached, so this has to be done on every configure run. Setting an environment
+        # variable to an empty value unsets it, so use a non-existing path when the
+        # sysroot is unknown.
+        if(NOT QT_NO_OVERRIDE_PKG_CONFIG_LIBDIR)
+            set(wasi_sysroot "${CMAKE_FIND_ROOT_PATH}")
+            if(wasi_sdk)
+                set(wasi_sysroot "${wasi_sdk}/share/wasi-sysroot")
+            endif()
+            if(wasi_sysroot)
+                set(pc_config_libdir
+                    "${wasi_sysroot}/lib/wasm32-wasip2/pkgconfig"
+                    "${wasi_sysroot}/lib/pkgconfig"
+                    "${wasi_sysroot}/share/pkgconfig")
+                list(JOIN pc_config_libdir ":" pc_config_libdir)
+            else()
+                set(pc_config_libdir "/nonexistent-wasi-sysroot/lib/pkgconfig")
+            endif()
+            set(ENV{PKG_CONFIG_LIBDIR} "${pc_config_libdir}")
+            set(ENV{PKG_CONFIG_PATH} "")
+            set(ENV{PKG_CONFIG_DIR} "")
+        endif()
+    endif()
+endfunction()
+
 # Handle assignment of CMAKE_POLICY_VERSION_MINIMUM for cross-compilation toolchain files that
 # use cmake_minimum_required with an old version, to avoid deprecation warnings.
 # PLATFORM is the platform identifier in uppercase, e.g. ANDROID or OHOS.
@@ -827,6 +893,7 @@ macro(qt_internal_setup_autodetect)
     qt_auto_detect_ohos()
     qt_auto_detect_pch()
     qt_auto_detect_wasm()
+    qt_auto_detect_wasi()
     qt_auto_detect_win32_arm()
     qt_auto_detect_linux_x86()
     qt_auto_detect_integrity()

@@ -718,7 +718,7 @@ if(NOT WIN32)
     set_source_files_properties(kernel/qwineventnotifier.h PROPERTIES SKIP_AUTOMOC ON)
 endif()
 
-qt_internal_extend_target(Core CONDITION WASM
+qt_internal_extend_target(Core CONDITION QT_FEATURE_webhost
     SOURCES
         kernel/qcore_wasm.cpp)
 
@@ -974,7 +974,7 @@ qt_internal_extend_target(Core CONDITION APPLE
         text/qlocale_mac.mm
 )
 
-qt_internal_extend_target(Core CONDITION UNIX AND NOT APPLE AND NOT WASM AND NOT ANDROID
+qt_internal_extend_target(Core CONDITION UNIX AND NOT APPLE AND NOT QT_FEATURE_webhost AND NOT ANDROID
     SOURCES
         text/qlocale_unix.cpp
 )
@@ -985,7 +985,7 @@ qt_internal_extend_target(Core CONDITION QT_FEATURE_winsdkicu
         icuuc icuin
 )
 
-qt_internal_extend_target(Core CONDITION WASM
+qt_internal_extend_target(Core CONDITION QT_FEATURE_webhost
     SOURCES
         text/qlocale_wasm.cpp
 )
@@ -1184,7 +1184,7 @@ qt_internal_extend_target(Core CONDITION QT_FEATURE_processenvironment AND WIN32
         io/qprocess_win.cpp
 )
 
-qt_internal_extend_target(Core CONDITION QT_FEATURE_processenvironment AND UNIX
+qt_internal_extend_target(Core CONDITION QT_FEATURE_processenvironment AND UNIX AND NOT WASI
     SOURCES
         io/qprocess_unix.cpp
 )
@@ -1637,15 +1637,33 @@ if(QT_FEATURE_mimetype AND QT_FEATURE_mimetype_database)
     )
 endif()
 
+# Web host platform code (Emscripten, and WASI with nuscripten)
+qt_internal_extend_target(Core CONDITION QT_FEATURE_webhost
+    SOURCES
+        platform/wasm/qstdweb.cpp platform/wasm/qstdweb_p.h
+        platform/wasm/qwasmsuspendresumecontrol.cpp platform/wasm/qwasmsuspendresumecontrol_p.h
+        platform/wasm/qwasmlocalfileengine.cpp platform/wasm/qwasmlocalfileengine_p.h
+    INCLUDE_DIRECTORIES
+        platform/wasm/shims
+    PUBLIC_INCLUDE_DIRECTORIES
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/platform/wasm/shims>
+)
+
+# Emscripten-only platform code
 qt_internal_extend_target(Core CONDITION WASM
     SOURCES
         platform/wasm/qwasmanimationdriver.cpp platform/wasm/qwasmanimationdriver_p.h
         platform/wasm/qwasmglobal.cpp platform/wasm/qwasmglobal_p.h
-        platform/wasm/qstdweb.cpp platform/wasm/qstdweb_p.h
         platform/wasm/qwasmsocket.cpp platform/wasm/qwasmsocket_p.h
-        platform/wasm/qwasmsuspendresumecontrol.cpp platform/wasm/qwasmsuspendresumecontrol_p.h
-        platform/wasm/qwasmlocalfileengine.cpp platform/wasm/qwasmlocalfileengine_p.h
         kernel/qeventdispatcher_wasm.cpp kernel/qeventdispatcher_wasm_p.h
+)
+
+# WASI web host: add nuscripten include path
+qt_internal_extend_target(Core CONDITION WASI AND QT_FEATURE_webhost
+    INCLUDE_DIRECTORIES
+        ${QT_NUSCRIPTEN_INCLUDE_DIR}
+    PUBLIC_INCLUDE_DIRECTORIES
+        $<BUILD_INTERFACE:${QT_NUSCRIPTEN_INCLUDE_DIR}>
 )
 
 qt_internal_extend_target(Core CONDITION QT_FEATURE_ctf

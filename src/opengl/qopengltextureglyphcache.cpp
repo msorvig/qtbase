@@ -309,7 +309,7 @@ void QOpenGLTextureGlyphCache::resizeTextureData(int width, int height)
 
             {
                 QString source;
-#ifdef Q_OS_WASM
+#if QT_CONFIG(webhost)
                 source.append(QLatin1StringView(isCoreProfile ? qopenglslUntransformedPositionVertexShader_core : qopenglslUntransformedPositionVertexShader));
                 source.append(QLatin1StringView(isCoreProfile ? qopenglslMainWithTexCoordsVertexShader_core : qopenglslMainWithTexCoordsVertexShader));
 #else
@@ -321,7 +321,7 @@ void QOpenGLTextureGlyphCache::resizeTextureData(int width, int height)
 
             {
                 QString source;
-#ifdef Q_OS_WASM
+#if QT_CONFIG(webhost)
                 source.append(QLatin1StringView(isCoreProfile ? qopenglslImageSrcFragmentShader_core : qopenglslImageSrcFragmentShader));
                 source.append(QLatin1StringView(isCoreProfile ? qopenglslMainFragmentShader_core : qopenglslMainFragmentShader));
 #else

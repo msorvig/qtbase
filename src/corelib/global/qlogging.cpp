@@ -64,6 +64,9 @@
 #ifdef Q_OS_WASM
 #include <emscripten/emscripten.h>
 #endif
+#if QT_CONFIG(webhost) && !defined(Q_OS_WASM)
+#include <emscripten/val.h>
+#endif
 
 #if QT_CONFIG(slog2)
 extern char *__progname;
@@ -2086,6 +2089,35 @@ static bool wasm_default_message_handler(QtMsgType type,
 }
 #endif
 
+#if QT_CONFIG(webhost) && !defined(Q_OS_WASM)
+static bool web_default_message_handler(QtMsgType type,
+                                  const QMessageLogContext &,
+                                  const QString &formattedMessage)
+{
+    static bool forceStderrLogging = qEnvironmentVariableIntValue("QT_FORCE_STDERR_LOGGING");
+    if (forceStderrLogging)
+        return false;
+
+    emscripten::val console = emscripten::val::global("console");
+    std::string msg = formattedMessage.toStdString();
+    switch (type) {
+    case QtDebugMsg:
+    case QtInfoMsg:
+        console.call<void>("log", msg);
+        break;
+    case QtWarningMsg:
+        console.call<void>("warn", msg);
+        break;
+    case QtCriticalMsg:
+    case QtFatalMsg:
+        console.call<void>("error", msg);
+        break;
+    }
+
+    return true; // Prevent further output to stderr
+}
+#endif
+
 // --------------------------------------------------------------------------
 
 static void stderr_message_handler(QtMsgType type, const QMessageLogContext &context,
@@ -2127,6 +2159,8 @@ static constexpr auto systemMessageSink()
         AppleUnifiedLogger::messageHandler, true
 #elif defined Q_OS_WASM
         wasm_default_message_handler
+#elif QT_CONFIG(webhost)
+        web_default_message_handler
 #else
         nullptr
 #endif

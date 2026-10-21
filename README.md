@@ -42,3 +42,15 @@ Branches: `dev-wasm-webgpu`
 
 Companion patches live in qtdeclarative, qtshadertools and qtquick3d on the
 branch of the same name.
+
+wasi
+----
+
+WASI (wasm32-wasip2) as a platform target, built with the WASI SDK, and a
+webhost feature for code that uses web APIs, enabled on WASI via nuscripten.
+
+Branches: `dev-wasi`
+
+- Add WASI (wasm32-wasip2) platform target
+- Add webhost feature for code that uses web APIs
+- Enable webhost on WASI via nuscripten

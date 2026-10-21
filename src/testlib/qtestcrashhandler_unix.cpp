@@ -31,9 +31,11 @@
 #include <time.h>
 #include <sys/mman.h>
 #include <sys/uio.h>
+#if !defined(Q_OS_WASI)
 #include <sys/wait.h>
+#endif
 #include <unistd.h>
-# if !defined(Q_OS_INTEGRITY)
+# if !defined(Q_OS_INTEGRITY) && !defined(Q_OS_WASI)
 #  include <sys/resource.h>
 # endif
 # if __has_include(<sys/ucontext.h>)
@@ -491,7 +493,7 @@ void generateStackTrace(quintptr ip)
 #  endif // !Q_OS_INTEGRITY && !Q_OS_VXWORKS
 }
 
-#ifndef Q_OS_WASM // no signal handling for WASM
+#if !defined(Q_OS_WASM) && !defined(Q_OS_WASI) // no signal handling for wasm
 void blockUnixSignals()
 {
     // Block most Unix signals so the WatchDog thread won't be called when
@@ -863,7 +865,7 @@ void actionHandler(int signum, siginfo_t *info, void *ucontext)
     // we shouldn't reach here!
     std::abort();
 }
-#endif // !defined(Q_OS_WASM)
+#endif // !defined(Q_OS_WASM) && !defined(Q_OS_WASI)
 
 } // namespace CrashHandler
 } // namespace QTest
